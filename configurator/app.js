@@ -122,8 +122,10 @@ const TABS = [
   { id: "mods", label: "QoL", fields: [
     { key: "useModsync", label: "Install ModSync", type: "toggle", def: false,
       help: "Adds the ModSync server mod so clients keep their mods in sync with the server. 4.0 uses the Dildz SPT4 fork; 3.11 uses Corter's original mod." },
-    { key: "modsyncVersion", label: "ModSync version", type: "text", def: "0.12.5",
-      help: "Release tag — Dildz/ModSync-for-SPT4.0 (4.0) or c-orter/ModSync (3.11)." },
+    { key: "modsyncVersion", label: "ModSync version", type: "text", def: "0.12.6",
+      help: (s) => is40(s)
+        ? "Auto-filled to the latest Dildz/ModSync-for-SPT4.0 release on load; edit to pin a version."
+        : "Locked to Corter's final 0.11.1 — c-orter/ModSync is no longer maintained." },
     { key: "quma", label: "Install Quartermaster", type: "toggle", def: false,
       help: "Adds Quartermaster (quma) — an advanced server web UI for admins and players. Installs/updates/removes server mods from SPT Forge and talks to the Docker socket to restart the server. Reach it directly on the public IP or behind your reverse proxy. See the field guide for features. Available on SPT 4.0 only." },
     { key: "qumaPort", label: "Quartermaster port", type: "number", def: 9190, min: 1, max: 65535,
@@ -675,16 +677,17 @@ function set(key, val, rerenderTab) {
   state[key] = f && f.type === "number" && val !== "" ? Number(val) : val;
   if (key === "sptVersion") state.__pinnedSpt = true;   // user edited → stop auto-filling
   if (key === "fikaVersion") state.__pinnedFika = true;
+  if (key === "modsyncVersion") state.__pinnedModsync = true;
   if (key === "sptMajor") {
     // SPT/Fika versions differ per major — drop the pins, set sane defaults now so
     // the fields are never stale-for-the-wrong-major, then refetch latest below.
-    delete state.__pinnedSpt; delete state.__pinnedFika;
+    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync;
     const next = { sptMajor: val };
     // Frozen lines pin to their one published tag; 4.1 gets a default the Forge then
     // refreshes below.
     state.sptVersion     = val === "3" ? "3.11.4" : val === "4" ? "4.0.13" : "4.1.0";
     state.fikaVersion    = val === "3" ? "2.4.8"  : "2.3.2";
-    state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.5";
+    state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.6";
     // Retitle only the stack names still at some line's default (untouched); a name
     // the user has customised is left alone — no per-field pin needed. LEGACY_BASES are
     // previous defaults still sitting in returning users' localStorage: without them a
@@ -741,7 +744,7 @@ function init() {
   };
   $("reset").onclick = () => {
     for (const k in FIELDS) state[k] = FIELDS[k].def;
-    delete state.__pinnedSpt; delete state.__pinnedFika;
+    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync;
     saveState(); render(); detectVersions();
   };
   bootReadout();
@@ -775,6 +778,16 @@ function detectVersions() {
     const fikaRepo = is311(state) ? "Fika-Server" : "Fika-Server-CSharp";
     getJson(`https://api.github.com/repos/project-fika/${fikaRepo}/releases/latest`)
       .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedFika) applyVersion("fikaVersion", v); })
+      .catch(() => {});
+  }
+
+  // ModSync, on 4.0 only. Its 4.0 fork still ships releases even though SPT 4.0 itself
+  // is frozen — that is the whole reason the AUTO_UPDATE_MODSYNC knob survived the
+  // freeze. 3.11 stays pinned at Corter's final 0.11.1: nothing there is maintained,
+  // so chasing a tag would only risk an untested version.
+  if (is40(state)) {
+    getJson("https://api.github.com/repos/Dildz/ModSync-for-SPT4.0/releases/latest")
+      .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedModsync) applyVersion("modsyncVersion", v); })
       .catch(() => {});
   }
 }
