@@ -13,7 +13,7 @@
 const is311 = (s) => s.sptMajor === "3";
 const is40  = (s) => s.sptMajor === "4";
 const is41  = (s) => s.sptMajor === "4.1";
-// Frozen lines pin SPT: no Forge auto-fill, and the version field is read-only.
+// Frozen lines pin SPT: no version auto-fill, and the version field is read-only.
 const isFrozen = (s) => is311(s) || is40(s);
 // Two DIFFERENT questions, easy to conflate:
 //
@@ -64,7 +64,7 @@ const TABS = [
     { key: "sptVersion", label: "SPT version", type: "text", def: "4.1.1",
       help: (s) => isFrozen(s)
         ? `Locked to ${is311(s) ? "3.11.4" : "4.0.13"} — this line is frozen and no other tag is published.`
-        : "Auto-filled to the latest stable 4.1.x from the Forge on load; edit to pin a version. (A tag published for the 4.1 image.)", req: true },
+        : "Auto-filled to the latest stable 4.1.x from GitHub on load; edit to pin a version. (A tag published for the 4.1 image.)", req: true },
     { key: "installFika", label: "Install Fika", type: "toggle", def: true,
       help: (s) => modsSupported(s) ? "Install the Fika server mod on first boot." : "Fika has no build for this SPT line yet." },
     { key: "fikaVersion", label: "Fika version", type: "text", def: "2.3.2",
@@ -765,8 +765,8 @@ function set(key, val, rerenderTab) {
     // the fields are never stale-for-the-wrong-major, then refetch latest below.
     delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync; delete state.__pinnedHeadless;
     const next = { sptMajor: val };
-    // Frozen lines pin to their one published tag; 4.1 gets a default the Forge then
-    // refreshes below.
+    // Frozen lines pin to their one published tag; 4.1 gets a default that the GitHub
+    // lookup in detectVersions() then refreshes.
     state.sptVersion     = val === "3" ? "3.11.4" : val === "4" ? "4.0.13" : "4.1.1";
     state.fikaVersion    = val === "3" ? "2.4.8"  : "2.3.2";
     state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.6";
@@ -842,8 +842,10 @@ function init() {
 // client plugin, which can run ahead of the server). A field the user has edited is
 // pinned and never overwritten.
 //
-// Unauthenticated GitHub allows 60 requests/hour/IP and this makes up to four per load,
-// so a rate-limited visitor just keeps the static defaults — hence they are kept current.
+// Unauthenticated GitHub allows 60 requests/hour/IP — per visitor, not a shared pool.
+// A load costs 1 request on 4.1 (SPT only), 3 on 4.0 (mods only, SPT is frozen) and 0 on
+// 3.11 (everything pinned), so exhausting it takes 20+ reloads in an hour. A visitor who
+// manages that just keeps the static defaults — which is why those are kept current.
 function detectVersions() {
   if (typeof fetch !== "function") return;
   const getJson = (url) =>
