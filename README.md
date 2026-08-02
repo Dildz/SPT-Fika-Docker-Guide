@@ -88,7 +88,7 @@ services:
 ```yaml
 services:
   spt-4.1:
-    image: ghcr.io/dildz/spt-fika-server-4.1.x:4.1.0   # or :latest
+    image: ghcr.io/dildz/spt-fika-server-4.1.x:4.1.1   # or :latest
     container_name: spt-4.1
     restart: unless-stopped
     environment:
@@ -173,8 +173,10 @@ Each SPT line is its own package, so a pull never moves you across a major versi
 ### Building an image yourself
 
 ```bash
-# 4.1 — derives from the official image; SPT_VERSION is an upstream server-csharp tag
-docker build image-4.1/ -t spt-fika-server-4.1:4.1.0 --build-arg SPT_VERSION=4.1.0
+# 4.1 — derives from the official image; SPT_VERSION is an upstream server-csharp tag,
+# SPT_RELEASE the release-archive id for the client scaffold. Bump both together.
+docker build image-4.1/ -t spt-fika-server-4.1:4.1.1 \
+    --build-arg SPT_VERSION=4.1.1 --build-arg SPT_RELEASE=4.1.1-40743-e18bd1e
 
 # 4.0 — builds SPT from source
 docker build image-4.0/ -t spt-fika-server:4.0.13 \

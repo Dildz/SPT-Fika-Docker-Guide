@@ -28,16 +28,16 @@
 # into every container as a stray anonymous volume we neither use nor clean up.
 #
 # Build:
-#   docker build image-4.1/ -t spt-fika-server-4.1:4.1.0 \
-#       --build-arg SPT_VERSION=4.1.0 --build-arg SPT_RELEASE=4.1.0-40743-e18bd1e
+#   docker build image-4.1/ -t spt-fika-server-4.1:4.1.1 \
+#       --build-arg SPT_VERSION=4.1.1 --build-arg SPT_RELEASE=4.1.1-40743-e18bd1e
 #
 # SPT_VERSION  = a tag published for ghcr.io/sp-tarkov/server-csharp (the server).
 # SPT_RELEASE  = the full release id (<ver>-<build>-<hash>) of the SPT release
 #                archive (the client scaffold). These are DIFFERENT identifiers —
 #                bump both together on an SPT update.
 
-ARG SPT_VERSION=4.1.0
-ARG SPT_RELEASE=4.1.0-40743-e18bd1e
+ARG SPT_VERSION=4.1.1
+ARG SPT_RELEASE=4.1.1-40743-e18bd1e
 
 FROM ghcr.io/sp-tarkov/server-csharp:${SPT_VERSION} AS upstream
 

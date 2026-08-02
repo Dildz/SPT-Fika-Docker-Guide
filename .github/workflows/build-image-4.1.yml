@@ -15,13 +15,13 @@ on:
   workflow_dispatch:
     inputs:
       spt_version:
-        description: "SPT 4.1.x version — a published tag of ghcr.io/sp-tarkov/server-csharp (e.g. 4.1.0)"
+        description: "SPT 4.1.x version — a published tag of ghcr.io/sp-tarkov/server-csharp (e.g. 4.1.1)"
         required: true
-        default: "4.1.0"
+        default: "4.1.1"
       spt_release:
-        description: "SPT release id for the client scaffold — <ver>-<build>-<hash> (e.g. 4.1.0-40743-e18bd1e). Bump WITH spt_version."
+        description: "SPT release id for the client scaffold — <ver>-<build>-<hash> (e.g. 4.1.1-40743-e18bd1e). Bump WITH spt_version."
         required: true
-        default: "4.1.0-40743-e18bd1e"
+        default: "4.1.1-40743-e18bd1e"
       tag_latest:
         description: "Also tag :latest on the 4.1.x package"
         type: boolean

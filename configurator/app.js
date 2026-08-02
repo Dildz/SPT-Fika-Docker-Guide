@@ -61,7 +61,7 @@ const TABS = [
       help: (s) => is41(s)
         ? "SPT 4.1 — the living line. Bare server for now: Fika, ModSync and the headless client have no 4.1 build yet, so those options are off."
         : `SPT ${is311(s) ? "3.11" : "4.0"} is frozen — its image is built once and never chases a newer SPT. Fika and ModSync still work on it.` },
-    { key: "sptVersion", label: "SPT version", type: "text", def: "4.1.0",
+    { key: "sptVersion", label: "SPT version", type: "text", def: "4.1.1",
       help: (s) => isFrozen(s)
         ? `Locked to ${is311(s) ? "3.11.4" : "4.0.13"} — this line is frozen and no other tag is published.`
         : "Auto-filled to the latest stable 4.1.x from the Forge on load; edit to pin a version. (A tag published for the 4.1 image.)", req: true },
@@ -767,7 +767,7 @@ function set(key, val, rerenderTab) {
     const next = { sptMajor: val };
     // Frozen lines pin to their one published tag; 4.1 gets a default the Forge then
     // refreshes below.
-    state.sptVersion     = val === "3" ? "3.11.4" : val === "4" ? "4.0.13" : "4.1.0";
+    state.sptVersion     = val === "3" ? "3.11.4" : val === "4" ? "4.0.13" : "4.1.1";
     state.fikaVersion    = val === "3" ? "2.4.8"  : "2.3.2";
     state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.6";
     // Retitle only the stack names still at some line's default (untouched); a name
@@ -897,7 +897,7 @@ function bootReadout() {
   if (!el) return;
   const lines = [
     '<span class="cmd">spt-fika@deploy:~$</span> ./assemble.sh --fika',
-    '<span class="ok">✓</span> image    <span class="key">ghcr.io/dildz/spt-fika-server-4.1.x:4.1.0</span>',
+    '<span class="ok">✓</span> image    <span class="key">ghcr.io/dildz/spt-fika-server-4.1.x:4.1.1</span>',
     '<span class="ok">✓</span> fika mod <span class="key">2.3.2 (4.0)</span>',
     '<span class="ok">✓</span> listen   <span class="key">0.0.0.0:6969</span>',
     '<span class="ok">✓</span> quma     <span class="key">mod manager</span>',

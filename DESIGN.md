@@ -11,7 +11,7 @@ Three SPT lines, one folder and one GHCR package each, so a `docker pull` never 
 
 | Line | Folder | Package | Built how | Mods |
 |---|---|---|---|---|
-| **4.1** — living | `image-4.1/` | `spt-fika-server-4.1.x:{4.1.0,latest}` | **derived** from the official image (§7a) | none yet — bare server |
+| **4.1** — living | `image-4.1/` | `spt-fika-server-4.1.x:{4.1.1,latest}` | **derived** from the official image (§7a) | none yet — bare server |
 | **4.0** — frozen at `4.0.13` | `image-4.0/` | `spt-fika-server:{4.0.13,latest}` | from source (§7) | Fika · ModSync · headless · Quartermaster · Web App |
 | **3.11** — frozen at `3.11.4` | `image-3.11/` | `spt-fika-server-3.11.x:3.11.4` | from source, Node not .NET (§7) | Fika 2.4.8 · Corter ModSync 0.11.1 (both pinned) |
 
@@ -472,7 +472,7 @@ Registry: **GHCR**, all public, all multi-arch (amd64 + arm64). **One package pe
 
 | Package | Tags | Moves? |
 |---|---|---|
-| `ghcr.io/dildz/spt-fika-server-4.1.x` | `:4.1.0`, `:latest` | yes — the living line |
+| `ghcr.io/dildz/spt-fika-server-4.1.x` | `:4.1.1`, `:latest` | yes — the living line |
 | `ghcr.io/dildz/spt-fika-server` | `:4.0.13`, `:latest` | **no** — `:latest` pinned to 4.0.13 permanently |
 | `ghcr.io/dildz/spt-fika-server-3.11.x` | `:3.11.4` | no — never tagged `:latest` |
 

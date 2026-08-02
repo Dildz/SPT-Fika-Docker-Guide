@@ -38,7 +38,7 @@ Each SPT line is a **separate package**, so pulling an update never moves you ac
 
 | SPT line | Folder | Package | SPT updates? |
 |---|---|---|---|
-| **4.1** (living) | `image-4.1/` | `ghcr.io/dildz/spt-fika-server-4.1.x:{4.1.0,latest}` | yes — new tag per SPT 4.1.x release |
+| **4.1** (living) | `image-4.1/` | `ghcr.io/dildz/spt-fika-server-4.1.x:{4.1.1,latest}` | yes — new tag per SPT 4.1.x release |
 | **4.0** (frozen at `4.0.13`) | `image-4.0/` | `ghcr.io/dildz/spt-fika-server:{4.0.13,latest}` | **no** — `:latest` stays on 4.0.13 permanently |
 | **3.11** (frozen at `3.11.4`) | `image-3.11/` | `ghcr.io/dildz/spt-fika-server-3.11.x:3.11.4` | **no** |
 
@@ -51,7 +51,7 @@ Each SPT line is a **separate package**, so pulling an update never moves you ac
 > **4.1 is built differently.** `image-4.1/` does not build SPT from source — it derives from the
 > official `ghcr.io/sp-tarkov/server-csharp` image (already multi-arch) and only re-lays-out the
 > filesystem so the bind mount is the game root, matching 4.0. Its only build-arg is `SPT_VERSION`
-> (an upstream tag, e.g. `4.1.0`); there is no `SPT_MAJOR`. It ships as a **bare server** — no Fika,
+> (an upstream tag, e.g. `4.1.1`); there is no `SPT_MAJOR`. It ships as a **bare server** — no Fika,
 > no ModSync, no mod installers — until those support 4.1, so the mod knobs below don't apply to it yet.
 > It does add one var 4.0 has no equivalent for: **`SPT_BACKEND_IP`**, the address the server advertises
 > to game clients (leave unset for same-host play; set it to the host's reachable IP for LAN/remote).
