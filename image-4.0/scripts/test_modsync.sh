@@ -31,11 +31,43 @@ run >/dev/null
 [ -f "$ROOT/BepInEx/patchers/Corter-ModSync-Prepatch.dll" ]    || fail "headless patcher not at game root"
 [ -f "$ROOT/BepInEx/plugins/AdminMod.dll" ]                    || fail "merge clobbered the admin's client mod"
 
-# 2. config preserved on update
-echo '{"mine":true}' > "$ROOT/SPT/user/mods/Corter-ModSync/config.jsonc"
-USE_MODSYNC=true AUTO_UPDATE_MODSYNC=true MODSYNC_URL="file://$work/fixture.zip" "$here/install_modsync.sh" "$ROOT" >/dev/null
-grep -q '"mine"' "$ROOT/SPT/user/mods/Corter-ModSync/config.jsonc" || fail "user config clobbered on update"
+# ---- version gating ----------------------------------------------------------
+# AUTO_UPDATE_MODSYNC used to reinstall on EVERY boot regardless of version. A canary
+# inside the mod dir detects that: a reinstall rm -rf's the directory, so if the canary
+# survives, no reinstall happened.
+mod="$ROOT/SPT/user/mods/Corter-ModSync"
+canary() { touch "$mod/.canary"; }
+reinstalled() { [ ! -f "$mod/.canary" ]; }
+ver() { cat "$mod/.installed-version" 2>/dev/null; }
+ms() { USE_MODSYNC=true MODSYNC_URL="file://$work/fixture.zip" "$here/install_modsync.sh" "$ROOT" "$@"; }
+
+[ -n "$(ver)" ] || fail "fresh install did not record a version marker"
+
+# 2. same version + auto-update ON → must NOT reinstall (this is the bug being fixed)
+echo '{"mine":true}' > "$mod/config.jsonc"; canary
+MODSYNC_VERSION="$(ver)" AUTO_UPDATE_MODSYNC=true ms >/dev/null
+reinstalled && fail "reinstalled despite the pinned version already being installed"
+grep -q '"mine"' "$mod/config.jsonc" || fail "config clobbered when nothing should have happened"
+
+# 3. version CHANGED + auto-update OFF → must not touch anything
+canary
+MODSYNC_VERSION=9.9.9 AUTO_UPDATE_MODSYNC=false ms | grep -q "set AUTO_UPDATE_MODSYNC=true" || fail "no hint that an update is available"
+reinstalled && fail "updated while AUTO_UPDATE_MODSYNC=false"
+[ "$(ver)" != "9.9.9" ] || fail "marker moved without installing"
+
+# 4. version CHANGED + auto-update ON → updates, keeps config and the admin's mods
+canary
+MODSYNC_VERSION=9.9.9 AUTO_UPDATE_MODSYNC=true ms >/dev/null
+reinstalled || fail "did not update when the pinned version changed"
+[ "$(ver)" = "9.9.9" ] || fail "marker not advanced after update"
+grep -q '"mine"' "$mod/config.jsonc" || fail "user config clobbered on update"
 [ -f "$ROOT/BepInEx/plugins/AdminMod.dll" ] || fail "admin mod lost on update"
+
+# 5. untracked install (no marker) → adopted, never silently reinstalled
+rm -f "$mod/.installed-version"; canary
+MODSYNC_VERSION=1.2.3 AUTO_UPDATE_MODSYNC=true ms | grep -q "adopting" || fail "untracked install not adopted"
+reinstalled && fail "wiped an untracked install instead of adopting it"
+[ "$(ver)" = "1.2.3" ] || fail "adoption did not record the pinned version"
 
 # 3. disabled = no-op
 ROOT2="$work/root2"; mkdir -p "$ROOT2"

@@ -97,7 +97,7 @@ only; ModSync's `config.jsonc` excludes it from players).
 | `INSTALL_FIKA` | `true` | Install the Fika server mod into `user/mods/fika-server` if absent. `false` skips entirely (client/headless plugins too). |
 | `FIKA_VERSION` | `2.3.2` | Release tag of [`project-fika/Fika-Server-CSharp`](https://github.com/project-fika/Fika-Server-CSharp/releases) — drives **both** the server mod and (with ModSync) the [`Fika-Plugin`](https://github.com/project-fika/Fika-Plugin/releases) client plugin, same tag. |
 | `FIKA_HEADLESS_VERSION` | _(unset)_ | Release tag of [`project-fika/Fika-Headless`](https://github.com/project-fika/Fika-Headless/releases) (own `1.4.x` scheme). Set only when running a headless **and** ModSync; stages `Fika.Headless.dll` for the headless to sync. Unset = not staged. |
-| `AUTO_UPDATE_FIKA` | `false` | If `true`, reinstall the pinned versions in place on boot — server mod (preserving `fika.jsonc`) **and** the client + headless plugins if staged. If `false`, existing installs are left untouched. |
+| `AUTO_UPDATE_FIKA` | `false` | If `true`, update to `FIKA_VERSION` **when it differs from what is installed** — server mod, plus the client and headless plugins if staged. Not a reinstall-every-boot: the installer records what it put on disk (`.installed-version`) and compares, because a C# mod carries no readable version. `false` leaves existing installs alone. |
 | `NUM_HEADLESS_PROFILES` | _(unset)_ | If set, writes `headless.profiles.amount` in `fika.jsonc`. Leave unset for a non-headless server. |
 
 ## Runtime — ModSync (Phase 2)
@@ -109,7 +109,7 @@ server mod (the SPT 4.0 fork) so clients keep their mods in sync with the server
 |---|---|---|
 | `USE_MODSYNC` | `false` | Install the ModSync server mod. Off by default (opt-in). This table covers the **4.0** image (Dildz's SPT4.0 fork); it's ignored (with a logged skip) if you set `SPT_MAJOR=3` here. The separate **3.11 image** has its own `USE_MODSYNC` that installs Corter's original mod — see the frozen-image note above. |
 | `MODSYNC_VERSION` | `0.12.5` | Release tag (without the `v`) of `Dildz/ModSync-for-SPT4.0` to install. |
-| `AUTO_UPDATE_MODSYNC` | `false` | Reinstall the pinned version on boot if already present, preserving your `config.jsonc`. |
+| `AUTO_UPDATE_MODSYNC` | `false` | If `true`, update to `MODSYNC_VERSION` **when it differs from what is installed** (same version-marker mechanism as `AUTO_UPDATE_FIKA`). `false` leaves it alone. |
 | `MODSYNC_URL` | _(derived)_ | Override the release-zip URL (e.g. a self-hosted mirror, or `file://` for testing). Normally leave unset. |
 
 **Placement note (SPT 4 specific):** the bind mount is the **game root** and the SPT server runs

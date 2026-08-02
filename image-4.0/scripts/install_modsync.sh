@@ -56,7 +56,32 @@ install_modsync() {
     echo "ModSync installed"
 }
 
-if [ ! -d "$mod_dir" ] || [ ! -f "$ROOT/ModSync.Updater.exe" ] || [ "$AUTO_UPDATE_MODSYNC" = "true" ]; then
+# ---- version tracking --------------------------------------------------------
+# ModSync is a C# mod with no readable version on disk, so the installer records what it
+# installed and compares against the pin next boot. AUTO_UPDATE_MODSYNC previously meant
+# "re-download and re-extract on EVERY boot" even when the version already matched —
+# pointless churn, and it made booting depend on GitHub being up. It now means what it
+# says: update when the pinned version changes.
+marker="$mod_dir/.installed-version"
+
+if [ ! -d "$mod_dir" ] || [ ! -f "$ROOT/ModSync.Updater.exe" ]; then
+    # Missing entirely, or the client-side updater was lost — install regardless of the
+    # auto-update setting, since a half-present ModSync serves nobody.
     install_modsync
+    echo "$MODSYNC_VERSION" > "$marker"
+elif [ ! -f "$marker" ]; then
+    # Predates version tracking, or was installed by hand. Adopt rather than reinstall:
+    # the real version cannot be read, so replacing a working install to correct an
+    # unverifiable version costs more than it buys. Bump MODSYNC_VERSION to force one.
+    echo "$MODSYNC_VERSION" > "$marker"
+    echo "ModSync present but untracked — adopting as v${MODSYNC_VERSION} (bump the version to force an update)"
+elif [ "$(cat "$marker")" = "$MODSYNC_VERSION" ]; then
+    echo "ModSync v${MODSYNC_VERSION} already current — nothing to do"
+elif [ "$AUTO_UPDATE_MODSYNC" = "true" ]; then
+    echo "Updating ModSync: v$(cat "$marker") → v${MODSYNC_VERSION}"
+    install_modsync
+    echo "$MODSYNC_VERSION" > "$marker"
+else
+    echo "ModSync v$(cat "$marker") installed but v${MODSYNC_VERSION} pinned — set AUTO_UPDATE_MODSYNC=true to update"
 fi
 echo "ModSync ready: server mod in SPT/user/mods/Corter-ModSync, client files at the game root"
