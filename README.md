@@ -117,19 +117,29 @@ Built from source per-architecture, so it runs natively on:
 
 | Path | What |
 |---|---|
-| [`image/`](image/) | The Docker image — `Dockerfile`, `init-server.sh`, `scripts/` (Fika / ModSync / mod installers). |
+| [`image-4.1/`](image-4.1/) | **SPT 4.1** image — derived from the official server image, re-laid-out to the game-root mount. Bare server (no mods yet). |
+| [`image-4.0/`](image-4.0/) | **SPT 4.0** image (frozen at 4.0.13) — `Dockerfile`, `init-server.sh`, `scripts/` (Fika / ModSync installers). |
+| [`image-3.11/`](image-3.11/) | **SPT 3.11** image (frozen at 3.11.4) — self-contained, flat layout. |
 | [`configurator/`](configurator/) | The web configurator — a static single-page app (plain HTML/CSS/JS, no build). |
 | [`docs/`](docs/) | The env-var contract and operations notes. |
 | [`DESIGN.md`](DESIGN.md) | Architecture and the phased build plan. |
-| [`.github/workflows/`](.github/workflows/) | CI: multi-arch image build + publish to GHCR. |
+| [`.github/workflows/`](.github/workflows/) | CI: multi-arch image build + publish to GHCR (one workflow per SPT line). |
 
-### Building the image yourself
+Each SPT line is its own package, so a pull never moves you across a major version:
+`spt-fika-server-4.1.x` (living) · `spt-fika-server` (frozen at 4.0.13, including `:latest`) ·
+`spt-fika-server-3.11.x` (frozen at 3.11.4). See [`docs/env-vars.md`](docs/env-vars.md#which-image-for-which-spt).
+
+### Building an image yourself
 
 ```bash
-docker build image/ -t spt-fika-server:4.0.13 \
+# 4.1 — derives from the official image; SPT_VERSION is an upstream server-csharp tag
+docker build image-4.1/ -t spt-fika-server-4.1:4.1.0 --build-arg SPT_VERSION=4.1.0
+
+# 4.0 — builds SPT from source
+docker build image-4.0/ -t spt-fika-server:4.0.13 \
     --build-arg SPT_MAJOR=4 --build-arg SPT_VERSION=4.0.13
 ```
-`SPT_VERSION` must be a valid [`sp-tarkov/server-csharp`](https://github.com/sp-tarkov/server-csharp) tag. The installer scripts have offline self-checks: `bash image/scripts/test_installers.sh` and `test_modsync.sh`.
+`SPT_VERSION` must be a valid [`sp-tarkov/server-csharp`](https://github.com/sp-tarkov/server-csharp) tag. The 4.0 ModSync installer has an offline self-check: `bash image-4.0/scripts/test_modsync.sh`.
 
 ---
 

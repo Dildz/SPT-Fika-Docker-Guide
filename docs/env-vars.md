@@ -2,7 +2,7 @@
 
 This is the **authoritative** list of knobs the image exposes. The web
 configurator's schema (`configurator/lib/schema.ts`) mirrors this file; the
-`image/` scripts are the implementation. If they disagree, **the code wins** —
+`image-4.0/` scripts are the implementation. If they disagree, **the code wins** —
 fix this doc to match `init-server.sh` and `scripts/`, not the reverse.
 
 Status legend: **live** = implemented and verified · **Phase 2** = implemented,
@@ -19,18 +19,42 @@ Updating SPT means building (or pulling) a new image tag.
 | `SPT_VERSION` | `4.0.13` | A valid tag/branch of the matching `sp-tarkov` repo (`server-csharp` for 4.x, `server` for 3.11.x). |
 
 ```
-docker build image/ -t spt-fika-server:4.0.13 \
+docker build image-4.0/ -t spt-fika-server:4.0.13 \
     --build-arg SPT_MAJOR=4 --build-arg SPT_VERSION=4.0.13
 ```
 
 > **SPT 3.11 is a frozen image.** It's built once from `image-3.11/` (published as
-> `ghcr.io/dildz/spt-fika-server-3.11.x:3.11.4`), not from `image/`. SPT, Fika and ModSync are
+> `ghcr.io/dildz/spt-fika-server-3.11.x:3.11.4`), not from `image-4.0/`. SPT, Fika and ModSync are
 > pinned and there are **no auto-updates** — the `AUTO_UPDATE_FIKA` / `AUTO_UPDATE_MODSYNC` knobs
 > below are 4.0-only and do nothing on 3.11 (its installers are install-once-then-skip). Two other
 > differences from 4.0: `USE_MODSYNC` **works on 3.11**, installing Corter's original
 > [`c-orter/ModSync`](https://github.com/c-orter/ModSync) (`MODSYNC_VERSION` default `0.11.1`); and
 > 3.11 uses a **flat game-root layout** (server runs from the mount root, no `SPT/` subdir), so mods
 > and ModSync's client files extract straight into the mount.
+
+### Which image for which SPT
+
+Each SPT line is a **separate package**, so pulling an update never moves you across a major version.
+
+| SPT line | Folder | Package | SPT updates? |
+|---|---|---|---|
+| **4.1** (living) | `image-4.1/` | `ghcr.io/dildz/spt-fika-server-4.1.x:{4.1.0,latest}` | yes — new tag per SPT 4.1.x release |
+| **4.0** (frozen at `4.0.13`) | `image-4.0/` | `ghcr.io/dildz/spt-fika-server:{4.0.13,latest}` | **no** — `:latest` stays on 4.0.13 permanently |
+| **3.11** (frozen at `3.11.4`) | `image-3.11/` | `ghcr.io/dildz/spt-fika-server-3.11.x:3.11.4` | **no** |
+
+> **4.0 is frozen at the SPT level only.** No further SPT rebuilds — `:latest` on the `spt-fika-server`
+> package is pinned to 4.0.13 for good, so existing 4.0 servers are never jumped to 4.1 by a pull. But
+> **Fika and ModSync keep updating normally** on 4.0 (`AUTO_UPDATE_FIKA` / `AUTO_UPDATE_MODSYNC` below
+> both still work), because the 4.0 ModSync line is still shipping releases. This is the one place 4.0
+> differs from the fully-frozen 3.11 image, where those knobs do nothing.
+
+> **4.1 is built differently.** `image-4.1/` does not build SPT from source — it derives from the
+> official `ghcr.io/sp-tarkov/server-csharp` image (already multi-arch) and only re-lays-out the
+> filesystem so the bind mount is the game root, matching 4.0. Its only build-arg is `SPT_VERSION`
+> (an upstream tag, e.g. `4.1.0`); there is no `SPT_MAJOR`. It ships as a **bare server** — no Fika,
+> no ModSync, no mod installers — until those support 4.1, so the mod knobs below don't apply to it yet.
+> It does add one var 4.0 has no equivalent for: **`SPT_BACKEND_IP`**, the address the server advertises
+> to game clients (leave unset for same-host play; set it to the host's reachable IP for LAN/remote).
 
 ## Runtime — core (live)
 
