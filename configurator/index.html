@@ -181,7 +181,21 @@ docker compose version          # verify (Compose plugin ships with it)</pre>
 
         <li>
           <h3>Deploy it</h3>
-          <p>Copy the bundle to your host, unzip, and bring it up with <code>docker compose up -d --wait</code>.</p>
+          <p>Copy the bundle to your host, unzip, and bring it up with <code>docker compose up -d --wait</code>. <b>Running a headless client? It needs preparing first</b> — see below.</p>
+          <details class="more">
+            <summary>Headless client — build it on your PC first</summary>
+            <div class="more-body">
+              <p>The headless is a <b>real game client</b> running unmanned, so it has to be built on Windows — the server can't produce one. Do this <b>before</b> deploying:</p>
+              <ol>
+                <li>Install a fresh SPT client with the SPT installer, and <b>run it once</b> so it's a working install.</li>
+                <li>Run the <a href="https://github.com/project-fika/Fika-Installer" target="_blank" rel="noreferrer">Fika Installer</a> → <em>Advanced options</em> → <b>Install Fika Headless</b>. It installs Fika-Core + Fika-Headless and <b>creates a headless profile</b> — note its ID.</li>
+                <li><b>Copy ModSync's client files into that folder.</b> The Fika Installer doesn't install ModSync, and without it the headless can't sync your modset.</li>
+              </ol>
+              <p>Then, on the server, two things move across to <em>two different places</em>: the <b>client folder</b> goes to the headless directory, and the <b>profile</b> (<code>&lt;id&gt;.json</code> from your PC's <code>user/profiles</code>) goes into the server's <code>SPT/user/profiles/</code>. Put that same ID in the <b>Headless profile ID</b> field above, or in <code>.env</code> afterwards.</p>
+              <p>One hardware caveat: the host CPU has to be able to <b>run EFT itself</b> — the headless hosts the raid and runs all the AI. It is not a lightweight sidecar.</p>
+              <p>The <code>README.md</code> in your bundle spells this out with your own paths filled in. Full prerequisites: <a href="https://github.com/zhliau/fika-headless-docker#prerequisites" target="_blank" rel="noreferrer">zhliau/fika-headless-docker</a>.</p>
+            </div>
+          </details>
           <details class="more">
             <summary>Deploy &amp; manage commands</summary>
             <div class="more-body">

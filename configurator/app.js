@@ -80,9 +80,9 @@ const TABS = [
     { key: "headlessDir", label: "Headless directory", type: "text", def: "../headless",
       help: "Host path bind-mounted to /opt/tarkov (the headless client's SPT + EFT files). Same convention as the data directory — ../headless is a sibling of the compose file's files/ folder." },
     { key: "numHeadlessProfiles", label: "Headless profiles", type: "number", def: "",
-      help: "How many headless profiles the server creates on boot (sets headless.profiles.amount in fika.jsonc). Usually 1.", min: 0, max: 10 },
+      help: "How many headless profiles the server keeps — it creates any shortfall on boot (sets headless.profiles.amount in fika.jsonc). Leave at 1 if you bring your own profile from the Fika Installer; the server then finds it and creates nothing. Note it only takes effect from the SECOND boot, because Fika generates fika.jsonc during its first server start.", min: 0, max: 10 },
     { key: "headlessProfileId", label: "Headless profile ID", type: "text", def: "",
-      help: "The server generates this on first boot — grab it from the logs, then set HEADLESS_PROFILE_ID in .env. Leave blank for now." },
+      help: (s) => `The ID of the headless profile created by the Fika Installer on your PC — set it here if you already know it, or leave blank and put it in .env later. You copy that profile's <id>.json into ${s.dataDir}/SPT/user/profiles/ alongside the client folder. (The server can also create headless profiles itself when "Headless profiles" is 1 or more; either way the ID is the profile's filename without .json, never printed in the log.)` },
     { key: "headlessTag", label: "Headless image tag", type: "text", def: "latest",
       help: "Tag of ghcr.io/zhliau/fika-headless-docker." },
     { key: "fikaHeadlessVersion", label: "Fika headless version", type: "text", def: "1.4.15",
@@ -478,28 +478,100 @@ function layoutSteps(s) {
 
 function emitReadme() {
   const s = state;
+  const hl = headlessOn();
+  const svc = s.serverName || "spt-4.1.x-server";
+  const hlName = s.headlessName || `${svc.replace(/-server$/, "")}-headless`;
+  const wait = s.healthcheck ? " --wait" : "";
+  // Numbered at the end, so the headless-only steps don't leave gaps when it's off.
+  // layoutSteps() hardcodes its own "2." prefix — strip it and let the numbering win.
+  const layout = layoutSteps(s);
+  const steps = [
+    ["Install Docker + Docker Compose."],
+    [layout[0].replace(/^2\.\s*/, ""), ...layout.slice(1)],
+  ];
+
+  if (hl) {
+    steps.push([
+      "**Build the headless client on your PC first.** The headless runs a real game client, so it has to be",
+      "   created on Windows — it cannot be produced on the server.",
+      "",
+      "   1. Install a fresh SPT client with the SPT installer, and run it once so it's a working install.",
+      "   2. Run the [Fika Installer](https://github.com/project-fika/Fika-Installer) → *Advanced options* →",
+      "      **Install Fika Headless**. It installs Fika-Core + Fika-Headless and **creates a headless profile**",
+      "      (note its ID — you'll need it below).",
+      "   3. Copy ModSync's client files into that headless folder. The Fika Installer does not install ModSync.",
+      "",
+      "   That folder is what you copy to the server later. The host also needs a CPU that can **run EFT itself** —",
+      "   the headless hosts raids and runs all the AI, so it is not a lightweight sidecar.",
+    ]);
+    steps.push([
+      "**Start the server on its own first**, so it creates the folder structure and installs Fika + ModSync:",
+      "",
+      "   ```",
+      `   docker compose up -d${wait} ${svc}`,
+      `   docker compose logs -f ${svc}`,
+      "   ```",
+      "",
+      "   Then stop it: `docker compose down`",
+    ]);
+    steps.push([
+      "**Move the headless in.** Two separate things, to two separate places:",
+      "",
+      `   - the headless **client folder** from your PC → \`${s.headlessDir}\``,
+      `   - its **profile** (\`<id>.json\` from your PC's \`user/profiles\`) → \`${s.dataDir}/SPT/user/profiles/\``,
+      "",
+      "   Then set that same ID in `.env` (skip if you already filled it into the configurator):",
+      "",
+      "   ```",
+      "   HEADLESS_PROFILE_ID=<the-id-from-the-Fika-Installer>",
+      "   ```",
+    ]);
+    steps.push([
+      "Start everything:",
+      "",
+      "   ```",
+      `   docker compose up -d${wait}`,
+      `   docker compose logs -f ${hlName}`,
+      "   ```",
+    ]);
+  } else {
+    steps.push([
+      "Start it, and watch the first boot (Fika install + server start):",
+      "",
+      "   ```",
+      `   docker compose up -d${wait}`,
+      `   docker compose logs -f ${svc}`,
+      "   ```",
+    ]);
+  }
+
+  steps.push([`Connect the SPT launcher to \`https://<your-server-ip>:${s.gamePort}\`.`]);
+
+  const body = steps.map((lines, i) => `${i + 1}. ${lines.join("\n")}`);
+
   return [
     "# SPT-FIKA Server — quick start",
     "",
     "Generated by the SPT-Fika configurator.",
     "",
-    "1. Install Docker + Docker Compose.",
-    ...layoutSteps(s),
-    "3. Start it:",
+    ...body.flatMap((b) => [b, ""]),
+    "---",
     "",
-    "   ```",
-    "   docker compose up -d",
-    "   ```",
+    "### Adding mods",
     "",
-    `4. Watch the first boot (Fika install + server start):`,
+    `Server mods go in \`${s.dataDir}/SPT/user/mods\`.`,
+    ...(modsyncOn() ? [
+      "",
+      `Client mods go in \`${s.dataDir}/BepInEx/plugins\` — that folder is ModSync's source of truth, and it`,
+      "pushes what it finds there to every connecting client. **ModSync makes clients *match* the server**, so",
+      "a mod you remove from the server is removed from players too.",
+    ] : []),
     "",
-    "   ```",
-    `   docker compose logs -f ${s.serverName}`,
-    "   ```",
+    `Restart afterwards: \`docker compose restart ${svc}\`.`,
     "",
-    `5. Connect the SPT launcher to \`https://<your-server-ip>:${s.gamePort}\`.`,
+    "---",
     "",
-    `Server files persist in \`${s.dataDir}\`. To change settings, regenerate the bundle and \`docker compose up -d\` again.`,
+    `Server files persist in \`${s.dataDir}\`. To change settings, regenerate the bundle and \`docker compose up -d${wait}\` again.`,
     "",
   ].join("\n");
 }
