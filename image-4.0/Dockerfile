@@ -20,7 +20,14 @@ ARG SPT_VERSION=4.0.13
 # build-v4 — compile SPT 4.0 (C# / .NET) from source for the target architecture.
 # Adapted from Outshynd's spt-server image (DESIGN.md §4).
 # ============================================================================
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build-v4
+# SDK 9, not 10, because SPT 4.0 targets net9.0 — and not only the output: its build
+# RUNS net9.0 tools. SPTarkov.Server.Core has a post-build step that executes
+# Ceciler.Launcher.dll (an IL post-processor) via `dotnet`, which needs the 9.0 runtime
+# present. The SDK 10 image ships only the 10.x runtime, so that step died with
+# "Framework 'Microsoft.NETCore.App' version '9.0.0' ... The following frameworks were
+# found: 10.0.10" (exit 150) — breaking a build that had worked for months, purely
+# because the base image moved. Matches the aspnet:9.0-noble runtime stage below.
+FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build-v4
 ARG TARGETOS
 ARG TARGETARCH
 ARG SPT_VERSION
