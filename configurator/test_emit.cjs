@@ -28,7 +28,7 @@ const epilogue = `
 // mod ecosystem on for 4.1.
 const dEnv = emitEnv(), dCompose = emitCompose();
 checks([
-  [dEnv.includes("SPT_VERSION=4.1.0"), "default SPT_VERSION = 4.1.0"],
+  [dEnv.includes("SPT_VERSION=4.1.1"), "default SPT_VERSION = 4.1.1"],
   [dCompose.includes("ghcr.io/dildz/spt-fika-server-4.1.x:"), "4.1 pulls the dedicated -4.1.x image"],
   [dCompose.includes('"6969:6969"'), "default port mapping"],
   [dCompose.includes("- ../server:/opt/server"), "default data dir mount"],
@@ -290,7 +290,7 @@ state.useModsync = true; state.quma = true; state.qumaAdminPassword = "supersecr
 L = line("4.1");
 checks([
   [L.name === "spt-4.1.x-server", "4.1 renames the stack base"],
-  [L.ver === "4.1.0", "4.1 resets the version"],
+  [L.ver === "4.1.1", "4.1 resets the version"],
   [L.fika === false, "4.1 forces Fika off"],
   [L.quma === false, "4.1 forces quma off"],
   [state.useModsync === false, "4.1 forces ModSync off"],
@@ -306,8 +306,35 @@ checks([
   [L.quma === false, "quma stays off on 3.11 (4.0-only)"],
   [L.img === "ghcr.io/dildz/spt-fika-server-3.11.x", "3.11 image"],
 ]);
-done();
+
+// ---- SPT version auto-fill picks the newest 4.1.x, not the newest release ----
+// The Forge is gone (shut down with the project on 2026-08-12), so this reads GitHub
+// releases. GitHub's /releases/latest is by publish date across ALL lines, which is why
+// the code lists releases and filters: a 4.0.x hotfix shipped after 4.1.1 must not land
+// in the 4.1 form, and beta tags must not either.
+fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve([
+  { tag_name: "4.1.2-BE-1", prerelease: true,  draft: false },   // beta — skip
+  { tag_name: "4.0.14",     prerelease: false, draft: false },   // newest overall — wrong line
+  { tag_name: "4.1.1",      prerelease: false, draft: false },   // the answer
+  { tag_name: "4.1.0",      prerelease: false, draft: false },
+]) });
+line("4.1");
+state.sptVersion = "0.0.0";
+detectVersions();
+// detectVersions resolves through a couple of microtask hops (fetch -> json -> apply);
+// drain a few before asserting. done() is proven to have run by the exit guard below.
+(async () => {
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  checks([[state.sptVersion === "4.1.1", "auto-fill takes newest stable 4.1.x, got " + state.sptVersion]]);
+  done();
+})();
 `;
 ctx.checks = (rows) => rows.forEach(([c, m]) => assert(c, m));
-ctx.done = () => console.log("PASS");
+// The last block is async, so it finishes after runInContext returns. Without this guard
+// a check that never ran would look identical to a passing run.
+let finished = false;
+ctx.done = () => { finished = true; console.log("PASS"); };
+process.on("exit", (code) => {
+  if (code === 0 && !finished) { console.error("FAIL: async checks never completed"); process.exitCode = 1; }
+});
 vm.runInContext(fs.readFileSync(path.join(__dirname, "app.js"), "utf8") + epilogue, ctx);

@@ -835,22 +835,30 @@ function init() {
 }
 
 // Live version defaults — fetch the latest on load, fall back to the static field
-// defaults if a source is unreachable/rate-limited. SPT from the Forge (clean 4.0.x,
-// no beta tags); the Fika *server* version from its GitHub releases — what
-// install_fika.sh actually downloads. (The Forge "Project Fika" entry tracks the
-// client plugin, which can run ahead of the server.) A field the user has edited
-// is pinned and never overwritten.
+// defaults if a source is unreachable/rate-limited. Everything comes from GitHub
+// releases: the SPT Forge shuts down 2026-08-12 with the rest of the project, so it
+// cannot be a runtime dependency. The Fika *server* version comes from its own repo —
+// that is what install_fika.sh downloads (the Forge's "Project Fika" entry tracked the
+// client plugin, which can run ahead of the server). A field the user has edited is
+// pinned and never overwritten.
+//
+// Unauthenticated GitHub allows 60 requests/hour/IP and this makes up to four per load,
+// so a rate-limited visitor just keeps the static defaults — hence they are kept current.
 function detectVersions() {
   if (typeof fetch !== "function") return;
   const getJson = (url) =>
     fetch(url, { headers: { Accept: "application/json" } }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
 
-  // Only 4.1 is living, so it is the only line worth asking the Forge about. Querying
-  // for a frozen line would hand back a tag we publish no image for the moment SPT
-  // ships another 4.0.x or 3.11.x.
+  // Only 4.1 is living, so it is the only line worth asking about — a frozen line would
+  // hand back a tag we publish no image for. /releases/latest is deliberately NOT used:
+  // it returns whatever shipped most recently across every line, so a late 4.0.x hotfix
+  // would fill a 4.0 version into the 4.1 form. Take the newest 4.1.x instead.
   if (!isFrozen(state)) {
-    getJson("https://forge.sp-tarkov.com/api/v0/spt/versions?filter%5Bspt_version%5D=%5E4.1.0&sort=-version&per_page=1&fields=version")
-      .then((j) => { const v = j && j.data && j.data[0] && j.data[0].version; if (v && !state.__pinnedSpt) applyVersion("sptVersion", v); })
+    getJson("https://api.github.com/repos/sp-tarkov/build/releases?per_page=20")
+      .then((j) => {
+        const r = (j || []).find((x) => !x.prerelease && !x.draft && /^4\.1\./.test(x.tag_name || ""));
+        if (r && !state.__pinnedSpt) applyVersion("sptVersion", r.tag_name);
+      })
       .catch(() => {});
   }
 
