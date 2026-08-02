@@ -21,19 +21,54 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, "zip.js"), "utf8"), ctx);
 const assert = (cond, msg) => { if (!cond) { console.error("FAIL:", msg); process.exit(1); } };
 
 const epilogue = `
+// ---- defaults = SPT 4.1, the living line: a BARE server ----
+// 4.1 has no Fika, ModSync, headless, Quartermaster or Web App build yet, so the
+// default bundle must contain none of them. These negative assertions are the point:
+// the old code said "not 3.11" to mean "4.0", which would have switched the whole
+// mod ecosystem on for 4.1.
 const dEnv = emitEnv(), dCompose = emitCompose();
 checks([
-  [dEnv.includes("SPT_VERSION=4.0.13"), "default SPT_VERSION"],
-  [dEnv.includes("INSTALL_FIKA=true"), "default INSTALL_FIKA"],
-  [dEnv.includes("FIKA_VERSION=2.3.2"), "default FIKA_VERSION"],
+  [dEnv.includes("SPT_VERSION=4.1.0"), "default SPT_VERSION = 4.1.0"],
+  [dCompose.includes("ghcr.io/dildz/spt-fika-server-4.1.x:"), "4.1 pulls the dedicated -4.1.x image"],
   [dCompose.includes('"6969:6969"'), "default port mapping"],
-  [!dCompose.includes("headless"), "no headless by default"],
-  [dCompose.includes("name: spt-fika-4.0.x"), "project name = stack base (4.0.x)"],
-  [dCompose.includes("container_name: spt-fika-4.0.x-server"), "default server name = base-server"],
   [dCompose.includes("- ../server:/opt/server"), "default data dir mount"],
-  [dCompose.includes("/fika/presence/get"), "fika healthcheck emitted"],
-  [/\\nnetworks:\\n  spt-fika-4.0.x-net:/.test(dCompose), "network declared"],
-  [dCompose.includes("- spt-fika-4.0.x-net"), "server joins the network"],
+  [dCompose.includes("name: spt-fika-4.1.x"), "project name = stack base (4.1.x)"],
+  [dCompose.includes("container_name: spt-fika-4.1.x-server"), "default server name = base-server"],
+  [dCompose.includes("- spt-fika-4.1.x-net"), "server joins the network"],
+  // the bare-server guarantees
+  [!dEnv.includes("INSTALL_FIKA"), "no INSTALL_FIKA on 4.1"],
+  [!dEnv.includes("FIKA_VERSION"), "no FIKA_VERSION on 4.1"],
+  [!dEnv.includes("AUTO_UPDATE"), "no AUTO_UPDATE_* on 4.1"],
+  [!dEnv.includes("USE_MODSYNC"), "no ModSync vars on 4.1"],
+  [!dEnv.includes("SPT_MAJOR"), "no SPT_MAJOR on 4.1 (single-line image)"],
+  [!dCompose.includes("headless"), "no headless on 4.1"],
+  [!dCompose.includes("quma"), "no Quartermaster on 4.1"],
+  [!dCompose.includes("fikawebapp"), "no Fika Web App on 4.1"],
+  [dCompose.includes("/health"), "4.1 uses the container health endpoint"],
+  [!dCompose.includes("/fika/presence/get"), "4.1 does not use the Fika healthcheck"],
+]);
+
+// A stale 4.0 selection must not leak services into a 4.1 bundle.
+state.installFika = true; state.useModsync = true; state.headlessEnabled = true;
+state.quma = true; state.webapp = true; state.qumaAdminPassword = "supersecret";
+checks([
+  [!emitCompose().includes("headless"), "4.1 suppresses a carried-over headless"],
+  [!emitCompose().includes("quma"), "4.1 suppresses a carried-over quma"],
+  [!emitCompose().includes("fikawebapp"), "4.1 suppresses a carried-over web app"],
+  [!emitEnv().includes("USE_MODSYNC"), "4.1 suppresses carried-over ModSync vars"],
+  [!emitEnv().includes("INSTALL_FIKA"), "4.1 suppresses carried-over Fika vars"],
+]);
+state.useModsync = false; state.headlessEnabled = false; state.quma = false; state.webapp = false;
+
+// ---- everything below exercises the mod ecosystem, which lives on 4.0 ----
+state.sptMajor = "4"; state.sptVersion = "4.0.13"; state.installFika = true;
+state.serverName = "spt-fika-4.0.x-server"; state.headlessName = ""; state.webappName = "";
+checks([
+  [emitEnv().includes("SPT_MAJOR=4"), "4.0 emits SPT_MAJOR"],
+  [emitEnv().includes("INSTALL_FIKA=true"), "default INSTALL_FIKA on 4.0"],
+  [emitEnv().includes("FIKA_VERSION=2.3.2"), "default FIKA_VERSION on 4.0"],
+  [emitCompose().includes("/fika/presence/get"), "fika healthcheck emitted on 4.0"],
+  [emitCompose().includes("ghcr.io/dildz/spt-fika-server:"), "4.0 pulls the base image"],
 ]);
 
 // Default stack names: shared base spt-fika-4.0.x with per-service suffixes.
@@ -219,6 +254,48 @@ state.puid = 99999999;
 checks([[!!validate().puid, "out-of-range PUID rejected"]]);
 state.puid = 1000;
 checks([[Object.keys(validate()).length === 0, "clean state has no validation errors"]]);
+
+// ---- switching SPT lines goes through set(), not a raw assignment ----
+// This is the path the UI actually takes, and the one that regressed: 4.1 forces the
+// mod toggles off, so coming back to a mod-capable line has to turn Fika on again or
+// the user silently gets a co-op-less 4.0 server.
+const line = (v) => { set("sptMajor", v); return { name: state.serverName, ver: state.sptVersion,
+  fika: state.installFika, quma: state.quma, img: emitCompose().split("image: ")[1].split(":")[0] }; };
+
+// Earlier tests pinned a custom server name, which a line switch deliberately leaves
+// alone. Restore a known per-line default first so the rename is observable.
+state.sptMajor = "4.1"; state.serverName = "spt-fika-4.1.x-server";
+state.headlessName = ""; state.webappName = "";
+checks([[state.serverName === "spt-fika-4.1.x-server", "test setup: name back on a known base"]]);
+
+let L = line("4");
+checks([
+  [L.name === "spt-fika-4.0.x-server", "4.0 renames the stack base"],
+  [L.ver === "4.0.13", "4.0 pins the frozen version"],
+  [L.fika === true, "switching to 4.0 turns Fika back on"],
+  [L.img === "ghcr.io/dildz/spt-fika-server", "4.0 image"],
+]);
+
+state.useModsync = true; state.quma = true; state.qumaAdminPassword = "supersecret";
+L = line("4.1");
+checks([
+  [L.name === "spt-fika-4.1.x-server", "4.1 renames the stack base"],
+  [L.ver === "4.1.0", "4.1 resets the version"],
+  [L.fika === false, "4.1 forces Fika off"],
+  [L.quma === false, "4.1 forces quma off"],
+  [state.useModsync === false, "4.1 forces ModSync off"],
+  [L.img === "ghcr.io/dildz/spt-fika-server-4.1.x", "4.1 image"],
+  [!emitCompose().includes("quma"), "no quma service survives the switch to 4.1"],
+]);
+
+L = line("3");
+checks([
+  [L.name === "spt-fika-3.11.4-server", "3.11 renames the stack base"],
+  [L.ver === "3.11.4", "3.11 pins the frozen version"],
+  [L.fika === true, "3.11 supports Fika"],
+  [L.quma === false, "quma stays off on 3.11 (4.0-only)"],
+  [L.img === "ghcr.io/dildz/spt-fika-server-3.11.x", "3.11 image"],
+]);
 done();
 `;
 ctx.checks = (rows) => rows.forEach(([c, m]) => assert(c, m));

@@ -2,23 +2,63 @@
 // No backend, no framework: the form mirrors docs/env-vars.md (the image contract),
 // emits compose/.env client-side, and downloads a zip (see zip.js).
 
+// ---- SPT lines ----------------------------------------------------------
+// Three lines, each its own image. Only 4.1 is living; 4.0 and 3.11 are frozen at
+// a pinned SPT and never rebuilt.
+//
+// These predicates exist because the old code said `sptMajor !== "3"` to mean
+// "is 4.0". With a third line that idiom silently means "4.0 OR 4.1" and would
+// switch Fika/ModSync/quma/webapp/headless on for 4.1, none of which support it
+// yet. Ask the question you actually mean.
+const is311 = (s) => s.sptMajor === "3";
+const is40  = (s) => s.sptMajor === "4";
+const is41  = (s) => s.sptMajor === "4.1";
+// Frozen lines pin SPT: no Forge auto-fill, and the version field is read-only.
+const isFrozen = (s) => is311(s) || is40(s);
+// Two DIFFERENT questions, easy to conflate:
+//
+//   modsSupported — does this line have a mod ecosystem at all? True for 3.11 (Fika
+//                   2.4.8 + Corter ModSync 0.11.1, both frozen) and 4.0. False for
+//                   4.1, where nothing has shipped a build yet.
+//   is40          — is this the line that gets the 4.0-only extras? Quartermaster,
+//                   the Fika Web App and the AUTO_UPDATE_* knobs never worked on
+//                   3.11 and do not exist for 4.1.
+const modsSupported = (s) => !is41(s);
+// Fields that need a mod ecosystem, and the narrower 4.0-only set. Listed once each
+// so a 4.1 Fika release is one edit, not a hunt through gates.
+const MOD_FIELDS = [
+  "installFika", "fikaVersion",
+  "useModsync", "modsyncVersion",
+  "headlessEnabled", "headlessName", "headlessDir", "numHeadlessProfiles",
+  "headlessProfileId", "headlessTag", "fikaHeadlessVersion",
+];
+const V4_ONLY_FIELDS = [
+  "autoUpdateFika", "autoUpdateModsync",
+  "webapp", "webappName", "webappApiKey", "webappPort",
+  "quma", "qumaPort", "qumaAdminPassword", "qumaDiscordWebhook",
+];
+
 // ---- schema: the form surface. Defaults = the most common Fika server. ----
 const TABS = [
   { id: "version", label: "VERSION", fields: [
-    { key: "sptMajor", label: "SPT major", type: "select", def: "4",
-      options: [["4", "4.0 (current)"], ["3", "3.11 (LTS)"]],
-      help: "Picks the server build/run path." },
-    { key: "sptVersion", label: "SPT version", type: "text", def: "4.0.13",
-      help: (s) => `Auto-filled to the latest stable ${s.sptMajor === "3" ? "3.11.x" : "4.0.x"} from the Forge on load; edit to pin a version. ${s.sptMajor === "3" ? "(A valid SPT 3.11.x release.)" : "(A valid sp-tarkov/server-csharp tag.)"}`, req: true },
+    { key: "sptMajor", label: "SPT line", type: "select", def: "4.1",
+      options: [["4.1", "4.1 (current)"], ["4", "4.0 (frozen)"], ["3", "3.11 (frozen)"]],
+      help: (s) => is41(s)
+        ? "SPT 4.1 — the living line. Bare server for now: Fika, ModSync and the headless client have no 4.1 build yet, so those options are off."
+        : `SPT ${is311(s) ? "3.11" : "4.0"} is frozen — its image is built once and never chases a newer SPT. Fika and ModSync still work on it.` },
+    { key: "sptVersion", label: "SPT version", type: "text", def: "4.1.0",
+      help: (s) => isFrozen(s)
+        ? `Locked to ${is311(s) ? "3.11.4" : "4.0.13"} — this line is frozen and no other tag is published.`
+        : "Auto-filled to the latest stable 4.1.x from the Forge on load; edit to pin a version. (A tag published for the 4.1 image.)", req: true },
     { key: "installFika", label: "Install Fika", type: "toggle", def: true,
-      help: "Install the Fika server mod on first boot." },
+      help: (s) => modsSupported(s) ? "Install the Fika server mod on first boot." : "Fika has no build for this SPT line yet." },
     { key: "fikaVersion", label: "Fika version", type: "text", def: "2.3.2",
-      help: (s) => `Auto-filled to the latest Fika server release on load; edit to pin a version. (Tag of project-fika/${s.sptMajor === "3" ? "Fika-Server" : "Fika-Server-CSharp"}.)`, req: true },
+      help: (s) => `Auto-filled to the latest Fika server release on load; edit to pin a version. (Tag of project-fika/${is311(s) ? "Fika-Server" : "Fika-Server-CSharp"}.)`, req: true },
   ]},
   { id: "headless", label: "HEADLESS", arch: "x86_64", fields: [
     { key: "headlessEnabled", label: "Enable headless client", type: "toggle", def: false,
       help: "Adds a headless Fika client (zhliau image) that hosts raids unmanned. x86-only." },
-    { key: "headlessName", label: "Headless name", type: "text", def: "spt-fika-4.0.x-headless",
+    { key: "headlessName", label: "Headless name", type: "text", def: "spt-fika-4.1.x-headless",
       help: "Container name + compose service id for the headless. Defaults to <base>-headless; clear to re-derive from the server name.", re: /^[a-zA-Z0-9_.-]+$/ },
     { key: "headlessDir", label: "Headless directory", type: "text", def: "../headless",
       help: "Host path bind-mounted to /opt/tarkov (the headless client's SPT + EFT files). Same convention as the data directory — ../headless is a sibling of the compose file's files/ folder." },
@@ -32,7 +72,7 @@ const TABS = [
       help: "Fika-Headless plugin release (project-fika/Fika-Headless). With ModSync on, the server stages Fika.Headless.dll so the headless syncs it. Own version scheme (1.4.x), separate from Fika." },
   ]},
   { id: "general", label: "GENERAL", fields: [
-    { key: "serverName", label: "Server name", type: "text", def: "spt-fika-4.0.x-server",
+    { key: "serverName", label: "Server name", type: "text", def: "spt-fika-4.1.x-server",
       help: "Container name + compose service id for the server. The part before -server is the stack base other services share (headless, webapp, quma, network). Defaults per SPT major.", re: /^[a-zA-Z0-9_.-]+$/ },
     { key: "dataDir", label: "Data directory", type: "text", def: "../server",
       help: "Host path bind-mounted to /opt/server (profiles, mods, configs persist here). Default assumes the compose file sits in a files/ subfolder (../server = sibling folder). For compose + data in one folder use ./server, or set an absolute path." },
@@ -83,7 +123,7 @@ const TABS = [
       help: "Optional. Quartermaster checks Forge and GitHub for mod updates every 30 minutes and posts new ones to this Discord webhook. Leave blank to disable the check." },
     { key: "webapp", label: "Fika Web App", type: "toggle", def: false,
       help: "Adds the Fika Web App container (lacyway/fikawebapp) — a browser admin UI: accounts, item sending, profiles, headless control. Needs Fika." },
-    { key: "webappName", label: "Web App name", type: "text", def: "spt-fika-4.0.x-webapp",
+    { key: "webappName", label: "Web App name", type: "text", def: "spt-fika-4.1.x-webapp",
       help: "Container name + compose service id for the web app. Defaults to <base>-webapp; clear to re-derive from the server name.", re: /^[a-zA-Z0-9_.-]+$/ },
     { key: "webappApiKey", label: "Web App API key", type: "text", def: "",
       help: "Generated by the Fika server (you'll have it after the first boot). Leave blank now and fill WEBAPP_API_KEY in .env later, or paste it here." },
@@ -113,7 +153,10 @@ function loadState() {
   const s = {};
   for (const k in FIELDS) s[k] = FIELDS[k].def;
   try { Object.assign(s, JSON.parse(localStorage.getItem(STORE_KEY) || "{}")); } catch {}
-  if (s.sptMajor === "3") { s.quma = false; s.webapp = false; }   // quma + Fika Web App are 4.0-only — never carry a stale 3.11 selection
+  // Never carry a stale selection into a line that cannot run it — a saved 4.0 state
+  // loaded under 4.1 would otherwise emit services that have no 4.1 build.
+  if (!modsSupported(s)) { s.installFika = false; s.useModsync = false; s.headlessEnabled = false; }
+  if (!is40(s)) { s.quma = false; s.webapp = false; s.autoUpdateFika = false; s.autoUpdateModsync = false; }
   return s;
 }
 function saveState() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }
@@ -140,22 +183,25 @@ function validate() {
 // A headless client IS a Fika client — without Fika there is nothing for it to be.
 // Gating it here means the headless service, QUMA_HEADLESS_CONTAINER and the headless
 // plugin all switch off together when Fika is off.
-function headlessOn() { return state.headlessEnabled && state.installFika && state.arch === "x86_64"; }
+function headlessOn() { return state.headlessEnabled && state.installFika && state.arch === "x86_64" && modsSupported(state); }
 // Fika Web App is 4.0-only — gate the service, .env keys and ARM Dockerfile together.
-function webappOn() { return state.webapp && state.sptMajor !== "3"; }
+function webappOn() { return state.webapp && is40(state); }
+// Fika itself, and therefore everything downstream of it.
+function fikaOn() { return state.installFika && modsSupported(state); }
+function modsyncOn() { return state.useModsync && modsSupported(state); }
 
 function emitCompose() {
-  const s = state, svc = s.serverName || "spt-fika-4.0.x-server";
+  const s = state, svc = s.serverName || "spt-fika-4.1.x-server";
   const base = svc.replace(/-server$/, "");          // shared stack base; other services suffix it
   const net = `${base}-net`;
   const hl = s.headlessName || `${base}-headless`;   // blank = derive from the base
   const wa = s.webappName || `${base}-webapp`;
-  // Dedicated image per major. 3.11 is its own build-once image; 4.0 keeps the
-  // current published name (renaming a live public image to -4.0.x is a separate
-  // coordinated republish, not a one-line change).
-  const image = s.sptMajor === "3"
-    ? "ghcr.io/dildz/spt-fika-server-3.11.x"
-    : "ghcr.io/dildz/spt-fika-server";
+  // Dedicated image per line, so a pull never crosses a major version. 4.0 keeps the
+  // original published name (renaming a live public image to -4.0.x is a separate
+  // coordinated republish, not a one-line change) and is frozen at 4.0.13.
+  const image = is311(s) ? "ghcr.io/dildz/spt-fika-server-3.11.x"
+              : is41(s)  ? "ghcr.io/dildz/spt-fika-server-4.1.x"
+              :            "ghcr.io/dildz/spt-fika-server";
   const L = [
     "# SPT-FIKA Server — docker-compose.yml",
     "# Generated by the SPT-Fika configurator",
@@ -175,9 +221,12 @@ function emitCompose() {
     `      - ${s.dataDir}:/opt/server`,
   ];
   if (s.healthcheck) {
-    // 4.0 + Fika → the Fika presence endpoint; otherwise (incl. all of 3.11, whose
-    // old Node Fika may not expose it) the vanilla SPT /launcher/ping, always present.
-    const ep = (s.installFika && s.sptMajor !== "3") ? "/fika/presence/get" : "/launcher/ping";
+    // 4.1 ships an endpoint added specifically for container healthchecks. 4.0 + Fika
+    // → the Fika presence endpoint; otherwise (incl. all of 3.11, whose old Node Fika
+    // may not expose it) the vanilla SPT /launcher/ping, always present.
+    const ep = is41(s) ? "/health"
+             : (is40(s) && s.installFika) ? "/fika/presence/get"
+             : "/launcher/ping";
     L.push(
       "    healthcheck:",
       `      test: ["CMD-SHELL", "curl -sfk https://localhost:6969${ep}"]`,
@@ -208,7 +257,7 @@ function emitCompose() {
       '      PROFILE_ID: "${HEADLESS_PROFILE_ID}"',
       `      UID: "${s.puid}"`,
       `      GID: "${s.pgid}"`,
-      `      USE_MODSYNC: "${s.useModsync ? "true" : "false"}"`,
+      `      USE_MODSYNC: "${modsyncOn() ? "true" : "false"}"`,
       '      AUTO_RESTART_ON_RAID_END: "false"',
       '      SAVE_LOG_ON_EXIT: "true"',
       // ponytail: wine sync left at the image default — esync was an experimental flag; the target
@@ -253,7 +302,7 @@ function emitCompose() {
     );
   }
 
-  if (s.quma && s.sptMajor !== "3") {   // quma is 4.0-only
+  if (s.quma && is40(s)) {   // quma is 4.0-only
     // Quartermaster (quma) — mounts the data dir at /opt/server and the Docker socket.
     // It wraps the server by its known container name (QUMA_SERVER_CONTAINER), so the
     // data dir can be any path style (relative like ../server, or absolute). Starts as
@@ -285,15 +334,15 @@ function emitCompose() {
       // Who owns the core mods. Auto-update on = this image reinstalls them every
       // boot, so quma must not touch them; off = the image installs once and quma
       // adopts them (update/remove from its web UI). No Fika = nothing to own.
-      ...(s.installFika ? [
+      ...(fikaOn() ? [
         `      QUMA_MANAGE_FIKA: "${!s.autoUpdateFika}"`,
         `      FIKA_VERSION: "${s.fikaVersion}"`,
       ] : []),
       // Fika's headless plugin is a separate GitHub-only component on its own version
       // line — quma adopts it as its own mod, so it needs the version too. Only ever
       // installed when a headless is actually in play (headlessOn() implies Fika).
-      ...(s.installFika && s.useModsync && headlessOn() ? [`      FIKA_HEADLESS_VERSION: "${s.fikaHeadlessVersion}"`] : []),
-      ...(s.useModsync ? [
+      ...(modsyncOn() && headlessOn() ? [`      FIKA_HEADLESS_VERSION: "${s.fikaHeadlessVersion}"`] : []),
+      ...(modsyncOn() ? [
         `      QUMA_MANAGE_MODSYNC: "${!s.autoUpdateModsync}"`,
         `      MODSYNC_VERSION: "${s.modsyncVersion}"`,
       ] : []),
@@ -323,34 +372,44 @@ function emitEnv() {
     "# SPT-FIKA Server — environment (.env)",
     "# Generated by the SPT-Fika configurator. See docs/env-vars.md.",
     "",
-    `SPT_MAJOR=${s.sptMajor}`,
+  ];
+  // The 4.1 image has no SPT_MAJOR build/run branch — it is a single-line image, so
+  // emitting one would be noise the entrypoint never reads.
+  if (!is41(s)) L.push(`SPT_MAJOR=${s.sptMajor}`);
+  L.push(
     `SPT_VERSION=${s.sptVersion}`,
+  );
+  // Fika has no 4.1 build yet — omit its keys entirely rather than emit INSTALL_FIKA=false.
+  if (modsSupported(s)) L.push(
     `INSTALL_FIKA=${s.installFika}`,
     `FIKA_VERSION=${s.fikaVersion}`,
+  );
+  L.push(
     `LISTEN_ALL_NETWORKS=${s.listenAll}`,
     `VERBOSE_LOGS=${s.verboseLogs}`,
     `PUID=${s.puid}`,
     `PGID=${s.pgid}`,
     `USER_NAME=${s.userName}`,
     `GROUP_NAME=${s.groupName}`,
-  ];
-  // 3.11 is frozen — no auto-update. Only 4.0 (the living branch) emits it.
-  if (s.sptMajor !== "3") L.push(`AUTO_UPDATE_FIKA=${s.autoUpdateFika}`);
+  );
+  // Only 4.0 has both a living mod ecosystem and the auto-update machinery: 3.11's
+  // installers are frozen install-once, and 4.1 has nothing to update yet.
+  if (is40(s)) L.push(`AUTO_UPDATE_FIKA=${s.autoUpdateFika}`);
   if (headlessOn()) {
     L.push(`HEADLESS_TAG=${s.headlessTag}`);
     L.push(`HEADLESS_PROFILE_ID=${s.headlessProfileId}`);
     if (String(s.numHeadlessProfiles).trim() !== "") L.push(`NUM_HEADLESS_PROFILES=${s.numHeadlessProfiles}`);
   }
-  if (s.useModsync) {
+  if (modsyncOn()) {
     L.push("USE_MODSYNC=true");
     L.push(`MODSYNC_VERSION=${s.modsyncVersion}`);
-    if (s.sptMajor !== "3") L.push(`AUTO_UPDATE_MODSYNC=${s.autoUpdateModsync}`);   // 3.11 is frozen — no auto-update
+    if (is40(s)) L.push(`AUTO_UPDATE_MODSYNC=${s.autoUpdateModsync}`);   // 3.11 is frozen — no auto-update
     // Headless plugin is staged into ModSync's folder only when a headless is also in
     // play; the client/headless staging is a 4.0 feature (3.11's installer is frozen).
-    if (headlessOn() && s.sptMajor !== "3") L.push(`FIKA_HEADLESS_VERSION=${s.fikaHeadlessVersion}`);
+    if (headlessOn() && is40(s)) L.push(`FIKA_HEADLESS_VERSION=${s.fikaHeadlessVersion}`);
   }
   if (webappOn()) L.push(`WEBAPP_API_KEY=${s.webappApiKey}`);
-  if (s.quma && s.sptMajor !== "3") {   // quma is 4.0-only
+  if (s.quma && is40(s)) {   // quma is 4.0-only
     L.push(`QUMA_ADMIN_PASSWORD=${s.qumaAdminPassword}`);
     if (s.qumaDiscordWebhook) L.push(`QUMA_DISCORD_WEBHOOK_URL=${s.qumaDiscordWebhook}`);
   }
@@ -464,7 +523,10 @@ function renderFields() {
   const host = $("fields");
   host.innerHTML = "";
   const errs = validate();
-  const tabDisabled = tab.arch && tab.arch !== state.arch;
+  // Headless is x86-only AND Fika-only, so its whole tab greys out on ARM or on a
+  // line with no Fika build.
+  const tabDisabled = (tab.arch && tab.arch !== state.arch)
+                   || (tab.id === "headless" && !modsSupported(state));
 
   for (const f of tab.fields) {
     const wrap = document.createElement("label");
@@ -479,13 +541,15 @@ function renderFields() {
     const disabled = tabDisabled
       || (tab.id === "headless" && f.key !== "headlessEnabled" && !state.headlessEnabled)
       || (f.key === "modsyncVersion" && !state.useModsync)
-      || (f.key === "fikaHeadlessVersion" && (!state.useModsync || state.sptMajor === "3"))   // headless staging: ModSync-served, 4.0-only
-      || (f.key === "autoUpdateFika" && state.sptMajor === "3")   // 3.11 is frozen — no auto-update
-      || (f.key === "autoUpdateModsync" && (!state.useModsync || state.sptMajor === "3"))
+      || (f.key === "fikaHeadlessVersion" && !state.useModsync)
+      || (f.key === "autoUpdateModsync" && !state.useModsync)
       || ((f.key === "webappName" || f.key === "webappApiKey" || f.key === "webappPort") && !state.webapp)
-      || ((f.key === "webapp" || f.key === "webappName" || f.key === "webappApiKey" || f.key === "webappPort") && state.sptMajor === "3")   // Fika Web App is 4.0-only
-      || ((f.key === "quma" || f.key === "qumaPort" || f.key === "qumaAdminPassword" || f.key === "qumaDiscordWebhook") && state.sptMajor === "3")   // quma is 4.0-only
-      || ((f.key === "qumaAdminPassword" || f.key === "qumaPort" || f.key === "qumaDiscordWebhook") && !state.quma);
+      || ((f.key === "qumaAdminPassword" || f.key === "qumaPort" || f.key === "qumaDiscordWebhook") && !state.quma)
+      // Frozen lines publish exactly one SPT tag, so the version is not a free field.
+      || (f.key === "sptVersion" && isFrozen(state))
+      // Everything mod-related is 4.0-only until Fika/ModSync/headless ship 4.1 builds.
+      || (MOD_FIELDS.includes(f.key) && !modsSupported(state))
+      || (V4_ONLY_FIELDS.includes(f.key) && !is40(state));
 
     if (f.type === "toggle") {
       input = document.createElement("input");
@@ -592,16 +656,29 @@ function set(key, val, rerenderTab) {
     // SPT/Fika versions differ per major — drop the pins, set sane defaults now so
     // the fields are never stale-for-the-wrong-major, then refetch latest below.
     delete state.__pinnedSpt; delete state.__pinnedFika;
-    state.sptVersion     = val === "3" ? "3.11.4" : "4.0.13";
+    const next = { sptMajor: val };
+    // Frozen lines pin to their one published tag; 4.1 gets a default the Forge then
+    // refreshes below.
+    state.sptVersion     = val === "3" ? "3.11.4" : val === "4" ? "4.0.13" : "4.1.0";
     state.fikaVersion    = val === "3" ? "2.4.8"  : "2.3.2";
     state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.5";
-    // Retitle only the stack names still at the old major's default (untouched);
-    // a name the user has customised is left alone — no per-field pin needed.
-    const oldBase = val === "3" ? "spt-fika-4.0.x" : "spt-fika-3.11.4";
-    const newBase = val === "3" ? "spt-fika-3.11.4" : "spt-fika-4.0.x";
+    // Retitle only the stack names still at some line's default (untouched); a name
+    // the user has customised is left alone — no per-field pin needed.
+    const BASES = { "3": "spt-fika-3.11.4", "4": "spt-fika-4.0.x", "4.1": "spt-fika-4.1.x" };
+    const newBase = BASES[val];
     for (const [k, suffix] of [["serverName", "-server"], ["headlessName", "-headless"], ["webappName", "-webapp"]])
-      if (state[k] === `${oldBase}${suffix}`) state[k] = `${newBase}${suffix}`;
-    if (val === "3") { state.autoUpdateFika = false; state.quma = false; state.webapp = false; }   // 3.11: frozen (no auto-update); quma + Fika Web App are 4.0-only
+      if (Object.values(BASES).some((b) => state[k] === `${b}${suffix}`)) state[k] = `${newBase}${suffix}`;
+    // 3.11: frozen, no auto-update; quma + Fika Web App are 4.0-only.
+    if (val === "3") { state.autoUpdateFika = false; state.quma = false; state.webapp = false; }
+    // Mod toggles follow the line, the same way the version fields do: forced off where
+    // the line has no build (4.1), and back to their normal defaults where it does —
+    // otherwise switching 4.1 -> 4.0 would silently leave Fika off, which is the one
+    // thing nobody picks 4.0 for.
+    for (const k of MOD_FIELDS.concat(V4_ONLY_FIELDS)) {
+      if (FIELDS[k] && typeof FIELDS[k].def === "boolean")
+        state[k] = modsSupported(next) ? FIELDS[k].def : false;
+    }
+    if (!is40(next)) { state.quma = false; state.webapp = false; state.autoUpdateFika = false; state.autoUpdateModsync = false; }
   }
   saveState();
   if (rerenderTab) render();
@@ -657,19 +734,23 @@ function detectVersions() {
   const getJson = (url) =>
     fetch(url, { headers: { Accept: "application/json" } }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
 
-  // SPT major picks the source. 4.0 = C# server (Forge ^4.0.0, Fika-Server-CSharp);
-  // 3.11 = the pre-C# Node server (Forge ^3.11.0, the old Fika-Server repo).
-  const major3 = state.sptMajor === "3";
-  const sptFilter = major3 ? "%5E3.11.0" : "%5E4.0.0";
-  const fikaRepo = major3 ? "Fika-Server" : "Fika-Server-CSharp";
+  // Only 4.1 is living, so it is the only line worth asking the Forge about. Querying
+  // for a frozen line would hand back a tag we publish no image for the moment SPT
+  // ships another 4.0.x or 3.11.x.
+  if (!isFrozen(state)) {
+    getJson("https://forge.sp-tarkov.com/api/v0/spt/versions?filter%5Bspt_version%5D=%5E4.1.0&sort=-version&per_page=1&fields=version")
+      .then((j) => { const v = j && j.data && j.data[0] && j.data[0].version; if (v && !state.__pinnedSpt) applyVersion("sptVersion", v); })
+      .catch(() => {});
+  }
 
-  getJson(`https://forge.sp-tarkov.com/api/v0/spt/versions?filter%5Bspt_version%5D=${sptFilter}&sort=-version&per_page=1&fields=version`)
-    .then((j) => { const v = j && j.data && j.data[0] && j.data[0].version; if (v && !state.__pinnedSpt) applyVersion("sptVersion", v); })
-    .catch(() => {});
-
-  getJson(`https://api.github.com/repos/project-fika/${fikaRepo}/releases/latest`)
-    .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedFika) applyVersion("fikaVersion", v); })
-    .catch(() => {});
+  // Fika only ships for the mod-capable lines. 4.0 = C# server (Fika-Server-CSharp);
+  // 3.11 = the pre-C# Node server (the old Fika-Server repo).
+  if (modsSupported(state)) {
+    const fikaRepo = is311(state) ? "Fika-Server" : "Fika-Server-CSharp";
+    getJson(`https://api.github.com/repos/project-fika/${fikaRepo}/releases/latest`)
+      .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedFika) applyVersion("fikaVersion", v); })
+      .catch(() => {});
+  }
 }
 function applyVersion(key, v) {
   if (state[key] === v) return;
@@ -698,8 +779,8 @@ function bootReadout() {
   if (!el) return;
   const lines = [
     '<span class="cmd">spt-fika@deploy:~$</span> ./assemble.sh --fika',
-    '<span class="ok">✓</span> image    <span class="key">ghcr.io/dildz/spt-fika-server:4.0.13</span>',
-    '<span class="ok">✓</span> fika mod <span class="key">2.3.2</span>',
+    '<span class="ok">✓</span> image    <span class="key">ghcr.io/dildz/spt-fika-server-4.1.x:4.1.0</span>',
+    '<span class="ok">✓</span> fika mod <span class="key">2.3.2 (4.0)</span>',
     '<span class="ok">✓</span> listen   <span class="key">0.0.0.0:6969</span>',
     '<span class="ok">✓</span> quma     <span class="key">mod manager</span>',
     '<span class="ok">✓</span> bundle   compose · .env · readme',
