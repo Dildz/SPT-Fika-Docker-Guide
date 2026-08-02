@@ -109,7 +109,7 @@ checks([
   [emitEnv().includes("USE_MODSYNC=true"), "USE_MODSYNC emitted"],
   [emitEnv().includes("MODSYNC_VERSION=0.12.5"), "MODSYNC_VERSION emitted"],
   [emitEnv().includes("AUTO_UPDATE_MODSYNC="), "AUTO_UPDATE_MODSYNC emitted on 4.0 ModSync"],
-  [emitEnv().includes("FIKA_HEADLESS_VERSION=1.4.14"), "FIKA_HEADLESS_VERSION emitted when headless + ModSync"],
+  [emitEnv().includes("FIKA_HEADLESS_VERSION=1.4.15"), "FIKA_HEADLESS_VERSION emitted when headless + ModSync"],
 ]);
 
 state.sptMajor = "3";

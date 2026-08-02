@@ -24,6 +24,12 @@ const isFrozen = (s) => is311(s) || is40(s);
 //                   the Fika Web App and the AUTO_UPDATE_* knobs never worked on
 //                   3.11 and do not exist for 4.1.
 const modsSupported = (s) => !is41(s);
+// Whose mod versions chase GitHub. 3.11's are pinned to their final releases — nothing
+// on that line is maintained, so querying could only pull something untested onto a
+// frozen server. 4.0's mod line is still shipping, so it follows upstream. 4.1 is
+// excluded today only because `modsSupported` excludes it; the day Fika and ModSync
+// build for 4.1 and that predicate opens up, this one follows with no extra edit.
+const modVersionsFollowUpstream = (s) => modsSupported(s) && !is311(s);
 // Fields that need a mod ecosystem, and the narrower 4.0-only set. Listed once each
 // so a 4.1 Fika release is one edit, not a hunt through gates.
 const MOD_FIELDS = [
@@ -62,7 +68,9 @@ const TABS = [
     { key: "installFika", label: "Install Fika", type: "toggle", def: true,
       help: (s) => modsSupported(s) ? "Install the Fika server mod on first boot." : "Fika has no build for this SPT line yet." },
     { key: "fikaVersion", label: "Fika version", type: "text", def: "2.3.2",
-      help: (s) => `Auto-filled to the latest Fika server release on load; edit to pin a version. (Tag of project-fika/${is311(s) ? "Fika-Server" : "Fika-Server-CSharp"}.)`, req: true },
+      help: (s) => is311(s)
+        ? "Pinned to Fika 2.4.8, the final release for 3.11 (project-fika/Fika-Server)."
+        : "Auto-filled to the latest project-fika/Fika-Server-CSharp release on load; edit to pin a version.", req: true },
   ]},
   { id: "headless", label: "HEADLESS", arch: "x86_64", fields: [
     { key: "headlessEnabled", label: "Enable headless client", type: "toggle", def: false,
@@ -77,8 +85,9 @@ const TABS = [
       help: "The server generates this on first boot — grab it from the logs, then set HEADLESS_PROFILE_ID in .env. Leave blank for now." },
     { key: "headlessTag", label: "Headless image tag", type: "text", def: "latest",
       help: "Tag of ghcr.io/zhliau/fika-headless-docker." },
-    { key: "fikaHeadlessVersion", label: "Fika headless version", type: "text", def: "1.4.14",
-      help: "Fika-Headless plugin release (project-fika/Fika-Headless). With ModSync on, the server stages Fika.Headless.dll so the headless syncs it. Own version scheme (1.4.x), separate from Fika." },
+    { key: "fikaHeadlessVersion", label: "Fika headless version", type: "text", def: "1.4.15",
+      help: (s) => "Fika-Headless plugin release (project-fika/Fika-Headless) — its own 1.4.x line, separate from Fika. With ModSync on, the server stages Fika.Headless.dll so the headless syncs it."
+        + (modVersionsFollowUpstream(s) ? " Auto-filled to the latest on load; edit to pin." : "") },
   ]},
   { id: "general", label: "GENERAL", fields: [
     { key: "serverName", label: "Server name", type: "text", def: "spt-4.1.x-server",
@@ -123,9 +132,9 @@ const TABS = [
     { key: "useModsync", label: "Install ModSync", type: "toggle", def: false,
       help: "Adds the ModSync server mod so clients keep their mods in sync with the server. 4.0 uses the Dildz SPT4 fork; 3.11 uses Corter's original mod." },
     { key: "modsyncVersion", label: "ModSync version", type: "text", def: "0.12.6",
-      help: (s) => is40(s)
+      help: (s) => modVersionsFollowUpstream(s)
         ? "Auto-filled to the latest Dildz/ModSync-for-SPT4.0 release on load; edit to pin a version."
-        : "Locked to Corter's final 0.11.1 — c-orter/ModSync is no longer maintained." },
+        : "Pinned to Corter's final 0.11.1 — c-orter/ModSync is no longer maintained." },
     { key: "quma", label: "Install Quartermaster", type: "toggle", def: false,
       help: "Adds Quartermaster (quma) — an advanced server web UI for admins and players. Installs/updates/removes server mods from SPT Forge and talks to the Docker socket to restart the server. Reach it directly on the public IP or behind your reverse proxy. See the field guide for features. Available on SPT 4.0 only." },
     { key: "qumaPort", label: "Quartermaster port", type: "number", def: 9190, min: 1, max: 65535,
@@ -678,10 +687,11 @@ function set(key, val, rerenderTab) {
   if (key === "sptVersion") state.__pinnedSpt = true;   // user edited → stop auto-filling
   if (key === "fikaVersion") state.__pinnedFika = true;
   if (key === "modsyncVersion") state.__pinnedModsync = true;
+  if (key === "fikaHeadlessVersion") state.__pinnedHeadless = true;
   if (key === "sptMajor") {
     // SPT/Fika versions differ per major — drop the pins, set sane defaults now so
     // the fields are never stale-for-the-wrong-major, then refetch latest below.
-    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync;
+    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync; delete state.__pinnedHeadless;
     const next = { sptMajor: val };
     // Frozen lines pin to their one published tag; 4.1 gets a default the Forge then
     // refreshes below.
@@ -744,7 +754,7 @@ function init() {
   };
   $("reset").onclick = () => {
     for (const k in FIELDS) state[k] = FIELDS[k].def;
-    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync;
+    delete state.__pinnedSpt; delete state.__pinnedFika; delete state.__pinnedModsync; delete state.__pinnedHeadless;
     saveState(); render(); detectVersions();
   };
   bootReadout();
@@ -772,23 +782,20 @@ function detectVersions() {
       .catch(() => {});
   }
 
-  // Fika only ships for the mod-capable lines. 4.0 = C# server (Fika-Server-CSharp);
-  // 3.11 = the pre-C# Node server (the old Fika-Server repo).
-  if (modsSupported(state)) {
-    const fikaRepo = is311(state) ? "Fika-Server" : "Fika-Server-CSharp";
-    getJson(`https://api.github.com/repos/project-fika/${fikaRepo}/releases/latest`)
-      .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedFika) applyVersion("fikaVersion", v); })
-      .catch(() => {});
-  }
-
-  // ModSync, on 4.0 only. Its 4.0 fork still ships releases even though SPT 4.0 itself
-  // is frozen — that is the whole reason the AUTO_UPDATE_MODSYNC knob survived the
-  // freeze. 3.11 stays pinned at Corter's final 0.11.1: nothing there is maintained,
-  // so chasing a tag would only risk an untested version.
-  if (is40(state)) {
-    getJson("https://api.github.com/repos/Dildz/ModSync-for-SPT4.0/releases/latest")
-      .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state.__pinnedModsync) applyVersion("modsyncVersion", v); })
-      .catch(() => {});
+  // Mod versions, for the lines that follow upstream (see modVersionsFollowUpstream).
+  // 3.11 is deliberately absent: its Fika 2.4.8 / ModSync 0.11.1 are final and pinned.
+  // Each entry pins independently — editing one field stops only that one auto-filling.
+  if (modVersionsFollowUpstream(state)) {
+    for (const [field, repo, pin] of [
+      ["fikaVersion",         "project-fika/Fika-Server-CSharp",  "__pinnedFika"],
+      ["modsyncVersion",      "Dildz/ModSync-for-SPT4.0",         "__pinnedModsync"],
+      // Own 1.4.x version line, separate from Fika's — hence its own lookup.
+      ["fikaHeadlessVersion", "project-fika/Fika-Headless",       "__pinnedHeadless"],
+    ]) {
+      getJson(`https://api.github.com/repos/${repo}/releases/latest`)
+        .then((j) => { const v = j && j.tag_name && j.tag_name.replace(/^v/, ""); if (v && !state[pin]) applyVersion(field, v); })
+        .catch(() => {});
+    }
   }
 }
 function applyVersion(key, v) {
