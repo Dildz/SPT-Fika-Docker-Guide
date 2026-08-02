@@ -169,19 +169,21 @@ checks([
 state.qumaDiscordWebhook = "";
 state.quma = false;
 
-// Every image declares its own HEALTHCHECK, so "off" has to disable it explicitly —
-// otherwise the container stays health-gated and \`up --wait\` blocks regardless.
+// Every image declares its own 30s HEALTHCHECK, so "off" emits nothing and the image's
+// check applies — the toggle governs whether dependents WAIT for healthy, not whether
+// health checking exists. It must never emit \`disable: true\`.
 state.healthcheck = false;
 checks([
-  [emitCompose().includes("disable: true"), "healthcheck off disables the image's built-in one"],
-  [!emitCompose().includes("CMD-SHELL"), "no healthcheck test command when toggled off"],
-  [emitCompose().includes("condition: service_started"), "deps gate on service_started when no healthcheck"],
-  [!emitCompose().includes("service_healthy"), "no service_healthy without a healthcheck"],
+  [!emitCompose().includes("healthcheck:"), "no compose healthcheck block when toggled off"],
+  [!emitCompose().includes("disable: true"), "off falls back to the image's check, never disables it"],
+  [emitCompose().includes("condition: service_started"), "deps gate on service_started when off"],
+  [!emitCompose().includes("service_healthy"), "no service_healthy when off"],
 ]);
 state.healthcheck = true;
 checks([
-  [emitCompose().includes("CMD-SHELL"), "healthcheck on emits a test command"],
-  [!emitCompose().includes("disable: true"), "healthcheck on does not disable"],
+  [emitCompose().includes("CMD-SHELL"), "on emits an override test command"],
+  [emitCompose().includes("interval: 10s"), "on overrides with a tighter interval than the image's 30s"],
+  [!emitCompose().includes("disable: true"), "on never disables"],
 ]);
 state.healthcheck = true;
 

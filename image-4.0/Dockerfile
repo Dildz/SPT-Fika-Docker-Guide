@@ -127,8 +127,13 @@ COPY --chmod=755 scripts/ /opt/scripts/
 ENV SPT_MAJOR=${SPT_MAJOR}
 EXPOSE 6969
 
-# SPT serves HTTPS with a self-signed cert, hence -k.
-HEALTHCHECK --interval=180s --timeout=10s --retries=3 --start-period=60s \
+# SPT serves HTTPS with a self-signed cert, hence -k. /launcher/ping needs no Fika.
+# Timings match image-4.1/ so every line reports healthy on the same schedule. Docker
+# runs the first probe one interval after start, so the interval is a floor on how
+# soon a container can be marked healthy — at the old 180s, `docker compose up --wait`
+# and any service_healthy dependency sat idle for three minutes on a server that was
+# ready in twenty seconds.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fk --header "responsecompressed:0" https://localhost:6969/launcher/ping || exit 1
 
 ENTRYPOINT ["/usr/bin/init-server"]

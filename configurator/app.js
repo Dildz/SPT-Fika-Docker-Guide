@@ -95,10 +95,10 @@ const TABS = [
       help: "Reinstall the pinned ModSync version on boot if already installed (preserves config.jsonc)." },
     { key: "verboseLogs", label: "Verbose logs", type: "toggle", def: true,
       help: "Off filters high-frequency request spam (keepalive / ping / heartbeat)." },
-    { key: "healthcheck", label: "Server healthcheck", type: "toggle", def: true,
-      help: (s) => "The image already has a healthcheck built in; this replaces it with a faster one so `docker compose up -d --wait` returns as soon as the server is ready"
-        + (modsSupported(s) ? ", and lets the headless / web app / Quartermaster wait for a healthy server instead of a merely started one" : "")
-        + ". Off disables health-gating entirely (the image's check included)." },
+    { key: "healthcheck", label: "Wait for a healthy server", type: "toggle", def: true,
+      help: (s) => modsSupported(s)
+        ? "The headless, web app and Quartermaster hold off until the server reports healthy, instead of starting the moment its container does — which matters because they read the server's files. Also makes `docker compose up -d --wait` return as soon as it's ready. Off = they start straight away. (The image health-checks itself either way; this just reacts faster.)"
+        : "Makes `docker compose up -d --wait` return as soon as the server is ready rather than a few seconds later. Nothing else in this stack depends on the server, so it changes little here. (The image health-checks itself either way; this just reacts faster.)" },
   ]},
   { id: "adv", label: "ADV", fields: [
     { key: "puid", label: "PUID", type: "number", def: 1000, min: 0, max: 65535,
@@ -222,10 +222,11 @@ function emitCompose() {
     "    volumes:",
     `      - ${s.dataDir}:/opt/server`,
   ];
-  // Every one of our images already declares a HEALTHCHECK, so this block is an
-  // OVERRIDE, not an addition — and "off" therefore has to explicitly disable the
-  // image's, or the container would still be health-gated and `up --wait` would
-  // still block on it, which is the opposite of what unticking the box implies.
+  // Every one of our images already declares a HEALTHCHECK (30s, same shape on all
+  // three lines), so this block is an OVERRIDE, not an addition. Off simply emits
+  // nothing and the image's own check applies — health checking never disappears,
+  // which is why the toggle is about whether dependents WAIT for healthy, not about
+  // whether a healthcheck exists.
   if (s.healthcheck) {
     // 4.1 ships an endpoint added specifically for container healthchecks. 4.0 + Fika
     // → the Fika presence endpoint, which proves Fika actually loaded rather than just
@@ -235,21 +236,14 @@ function emitCompose() {
              : (is40(s) && s.installFika) ? "/fika/presence/get"
              : "/launcher/ping";
     L.push(
-      "    # Overrides the image's built-in healthcheck with a tighter one, so",
-      "    # `docker compose up -d --wait` returns as soon as the server is ready.",
+      "    # Tighter than the image's built-in check (30s), so dependent services and",
+      "    # `docker compose up -d --wait` react as soon as the server is actually ready.",
       "    healthcheck:",
       `      test: ["CMD-SHELL", "curl -sfk https://localhost:6969${ep}"]`,
       "      interval: 10s",
       "      timeout: 5s",
       "      retries: 30",
       "      start_period: 30s",
-    );
-  } else {
-    L.push(
-      "    # The image ships its own healthcheck, so turning it off means disabling it",
-      "    # explicitly — otherwise the container stays health-gated and --wait blocks.",
-      "    healthcheck:",
-      "      disable: true",
     );
   }
   L.push("    networks:", `      - ${net}`);

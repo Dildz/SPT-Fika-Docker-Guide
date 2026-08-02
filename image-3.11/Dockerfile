@@ -39,6 +39,9 @@ COPY --chmod=755 init-server.sh /usr/bin/init-server
 COPY --chmod=755 scripts/ /opt/scripts/
 EXPOSE 6969
 # SPT serves HTTPS with a self-signed cert; /launcher/ping needs no Fika.
-HEALTHCHECK --interval=180s --timeout=10s --retries=3 --start-period=60s \
+# Timings match image-4.1/ so every line reports healthy on the same schedule (Docker
+# runs the first probe one interval after start, so the interval is a floor on how soon
+# a container can be marked healthy).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fk --header "responsecompressed:0" https://localhost:6969/launcher/ping || exit 1
 ENTRYPOINT ["/usr/bin/init-server"]
