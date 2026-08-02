@@ -20,14 +20,27 @@ ARG SPT_VERSION=4.0.13
 # build-v4 — compile SPT 4.0 (C# / .NET) from source for the target architecture.
 # Adapted from Outshynd's spt-server image (DESIGN.md §4).
 # ============================================================================
-# SDK 9, not 10, because SPT 4.0 targets net9.0 — and not only the output: its build
-# RUNS net9.0 tools. SPTarkov.Server.Core has a post-build step that executes
-# Ceciler.Launcher.dll (an IL post-processor) via `dotnet`, which needs the 9.0 runtime
-# present. The SDK 10 image ships only the 10.x runtime, so that step died with
-# "Framework 'Microsoft.NETCore.App' version '9.0.0' ... The following frameworks were
-# found: 10.0.10" (exit 150) — breaking a build that had worked for months, purely
-# because the base image moved. Matches the aspnet:9.0-noble runtime stage below.
-FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build-v4
+# Building SPT 4.0.13 needs BOTH majors of .NET, for two different reasons:
+#
+#   SDK 10  — the source uses C# 14 ('null conditional assignment' in
+#             LocationLifecycleService.cs). The C# 13 compiler in SDK 9 rejects it:
+#             "error CS8652: the feature ... is currently in Preview and *unsupported*".
+#   .NET 9 runtime — SPTarkov.Server.Core's post-build step EXECUTES
+#             Ceciler.Launcher.dll (a net9.0 IL post-processor) via `dotnet`. Without a
+#             9.0 runtime it dies with "Framework 'Microsoft.NETCore.App', version
+#             '9.0.0' ... The following frameworks were found: 10.0.10", exit code 150.
+#
+# sdk:10.0-noble used to carry a 9.0 runtime as well, which is why this built fine for
+# months and then stopped without a single change on our side. We now put it back
+# explicitly instead of relying on the base image to keep shipping it. COPY merges into
+# the shared-framework directory, so 10.x stays alongside.
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble AS dotnet9-runtime
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build-v4
+COPY --from=dotnet9-runtime /usr/share/dotnet/shared/Microsoft.NETCore.App \
+                            /usr/share/dotnet/shared/Microsoft.NETCore.App
+RUN dotnet --list-runtimes | grep -q 'Microsoft.NETCore.App 9\.' \
+ || { echo "FATAL: .NET 9 runtime missing — Ceciler post-build will fail" >&2; exit 1; }
 ARG TARGETOS
 ARG TARGETARCH
 ARG SPT_VERSION
