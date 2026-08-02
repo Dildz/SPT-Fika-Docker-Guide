@@ -108,8 +108,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # (matches the live update-server.sh backup excludes): the SPT client plugins/patcher
 # and the regenerated BepInEx configs. The doorstop bootstrap (winhttp.dll,
 # doorstop_config.ini, .doorstop_version, licenses) is kept.
+# Fetched from the GitHub release, NOT spt-releases.modd.in. That CDN carries only the
+# CURRENT release: when 4.1.0 shipped (2026-08-01) the 4.0.13 archive 404'd and this
+# build broke, despite 4.0.13 being a frozen pin that had built fine for months. GitHub
+# keeps every release asset, so a frozen line stays buildable. The release tag is derived
+# from SPT_RELEASE (its leading version) so the two can't drift apart.
 RUN if [ "${SPT_MAJOR}" = "4" ]; then \
-        curl -fsSL "https://spt-releases.modd.in/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
+        curl -fsSL "https://github.com/sp-tarkov/build/releases/download/${SPT_RELEASE%%-*}/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
      && 7z x /tmp/spt.7z -o/opt/gameroot >/dev/null \
      && rm -rf /opt/gameroot/SPT /tmp/spt.7z \
      && rm -rf /opt/gameroot/BepInEx/core \

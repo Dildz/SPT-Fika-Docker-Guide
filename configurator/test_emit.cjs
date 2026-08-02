@@ -32,9 +32,9 @@ checks([
   [dCompose.includes("ghcr.io/dildz/spt-fika-server-4.1.x:"), "4.1 pulls the dedicated -4.1.x image"],
   [dCompose.includes('"6969:6969"'), "default port mapping"],
   [dCompose.includes("- ../server:/opt/server"), "default data dir mount"],
-  [dCompose.includes("name: spt-fika-4.1.x"), "project name = stack base (4.1.x)"],
-  [dCompose.includes("container_name: spt-fika-4.1.x-server"), "default server name = base-server"],
-  [dCompose.includes("- spt-fika-4.1.x-net"), "server joins the network"],
+  [dCompose.includes("name: spt-4.1.x"), "project name = stack base (4.1.x)"],
+  [dCompose.includes("container_name: spt-4.1.x-server"), "default server name = base-server"],
+  [dCompose.includes("- spt-4.1.x-net"), "server joins the network"],
   // the bare-server guarantees
   [!dEnv.includes("INSTALL_FIKA"), "no INSTALL_FIKA on 4.1"],
   [!dEnv.includes("FIKA_VERSION"), "no FIKA_VERSION on 4.1"],
@@ -62,7 +62,7 @@ state.useModsync = false; state.headlessEnabled = false; state.quma = false; sta
 
 // ---- everything below exercises the mod ecosystem, which lives on 4.0 ----
 state.sptMajor = "4"; state.sptVersion = "4.0.13"; state.installFika = true;
-state.serverName = "spt-fika-4.0.x-server"; state.headlessName = ""; state.webappName = "";
+state.serverName = "spt-4.0.13-server"; state.headlessName = ""; state.webappName = "";
 checks([
   [emitEnv().includes("SPT_MAJOR=4"), "4.0 emits SPT_MAJOR"],
   [emitEnv().includes("INSTALL_FIKA=true"), "default INSTALL_FIKA on 4.0"],
@@ -71,11 +71,11 @@ checks([
   [emitCompose().includes("ghcr.io/dildz/spt-fika-server:"), "4.0 pulls the base image"],
 ]);
 
-// Default stack names: shared base spt-fika-4.0.x with per-service suffixes.
+// Default stack names: shared base spt-4.0.13 with per-service suffixes.
 state.arch = "x86_64"; state.headlessEnabled = true; state.webapp = true;
 checks([
-  [emitCompose().includes("  spt-fika-4.0.x-headless:"), "default headless name = base-headless"],
-  [emitCompose().includes("  spt-fika-4.0.x-webapp:"), "default webapp name = base-webapp"],
+  [emitCompose().includes("  spt-4.0.13-headless:"), "default headless name = base-headless"],
+  [emitCompose().includes("  spt-4.0.13-webapp:"), "default webapp name = base-webapp"],
 ]);
 state.headlessEnabled = false; state.webapp = false;
 
@@ -274,13 +274,13 @@ const line = (v) => { set("sptMajor", v); return { name: state.serverName, ver: 
 
 // Earlier tests pinned a custom server name, which a line switch deliberately leaves
 // alone. Restore a known per-line default first so the rename is observable.
-state.sptMajor = "4.1"; state.serverName = "spt-fika-4.1.x-server";
+state.sptMajor = "4.1"; state.serverName = "spt-4.1.x-server";
 state.headlessName = ""; state.webappName = "";
-checks([[state.serverName === "spt-fika-4.1.x-server", "test setup: name back on a known base"]]);
+checks([[state.serverName === "spt-4.1.x-server", "test setup: name back on a known base"]]);
 
 let L = line("4");
 checks([
-  [L.name === "spt-fika-4.0.x-server", "4.0 renames the stack base"],
+  [L.name === "spt-4.0.13-server", "4.0 renames the stack base"],
   [L.ver === "4.0.13", "4.0 pins the frozen version"],
   [L.fika === true, "switching to 4.0 turns Fika back on"],
   [L.img === "ghcr.io/dildz/spt-fika-server", "4.0 image"],
@@ -289,7 +289,7 @@ checks([
 state.useModsync = true; state.quma = true; state.qumaAdminPassword = "supersecret";
 L = line("4.1");
 checks([
-  [L.name === "spt-fika-4.1.x-server", "4.1 renames the stack base"],
+  [L.name === "spt-4.1.x-server", "4.1 renames the stack base"],
   [L.ver === "4.1.0", "4.1 resets the version"],
   [L.fika === false, "4.1 forces Fika off"],
   [L.quma === false, "4.1 forces quma off"],
@@ -300,7 +300,7 @@ checks([
 
 L = line("3");
 checks([
-  [L.name === "spt-fika-3.11.4-server", "3.11 renames the stack base"],
+  [L.name === "spt-3.11.4-server", "3.11 renames the stack base"],
   [L.ver === "3.11.4", "3.11 pins the frozen version"],
   [L.fika === true, "3.11 supports Fika"],
   [L.quma === false, "quma stays off on 3.11 (4.0-only)"],

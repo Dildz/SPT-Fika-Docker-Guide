@@ -58,7 +58,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl p7zip-full ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL "https://spt-releases.modd.in/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
+# Fetched from the GitHub release, NOT spt-releases.modd.in. That CDN carries only the
+# CURRENT release — when 4.1.0 shipped it dropped 4.0.13 and broke the 4.0 image's build
+# overnight. GitHub keeps every release asset. The release tag is derived from
+# SPT_RELEASE (its leading version) so the two can't drift apart.
+RUN curl -fsSL "https://github.com/sp-tarkov/build/releases/download/${SPT_RELEASE%%-*}/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
     && 7z x /tmp/spt.7z -o/opt/gameroot >/dev/null \
     && rm -f /tmp/spt.7z
 
