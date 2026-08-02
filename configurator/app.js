@@ -96,7 +96,9 @@ const TABS = [
     { key: "verboseLogs", label: "Verbose logs", type: "toggle", def: true,
       help: "Off filters high-frequency request spam (keepalive / ping / heartbeat)." },
     { key: "healthcheck", label: "Server healthcheck", type: "toggle", def: true,
-      help: "Adds a healthcheck on the server. Headless + web app wait for it before starting (run with `docker compose up -d --wait`). Off = they start as soon as the server container does." },
+      help: (s) => "The image already has a healthcheck built in; this replaces it with a faster one so `docker compose up -d --wait` returns as soon as the server is ready"
+        + (modsSupported(s) ? ", and lets the headless / web app / Quartermaster wait for a healthy server instead of a merely started one" : "")
+        + ". Off disables health-gating entirely (the image's check included)." },
   ]},
   { id: "adv", label: "ADV", fields: [
     { key: "puid", label: "PUID", type: "number", def: 1000, min: 0, max: 65535,
@@ -220,20 +222,34 @@ function emitCompose() {
     "    volumes:",
     `      - ${s.dataDir}:/opt/server`,
   ];
+  // Every one of our images already declares a HEALTHCHECK, so this block is an
+  // OVERRIDE, not an addition — and "off" therefore has to explicitly disable the
+  // image's, or the container would still be health-gated and `up --wait` would
+  // still block on it, which is the opposite of what unticking the box implies.
   if (s.healthcheck) {
     // 4.1 ships an endpoint added specifically for container healthchecks. 4.0 + Fika
-    // → the Fika presence endpoint; otherwise (incl. all of 3.11, whose old Node Fika
-    // may not expose it) the vanilla SPT /launcher/ping, always present.
+    // → the Fika presence endpoint, which proves Fika actually loaded rather than just
+    // that SPT is up; otherwise (incl. all of 3.11, whose old Node Fika may not expose
+    // it) the vanilla SPT /launcher/ping, always present.
     const ep = is41(s) ? "/health"
              : (is40(s) && s.installFika) ? "/fika/presence/get"
              : "/launcher/ping";
     L.push(
+      "    # Overrides the image's built-in healthcheck with a tighter one, so",
+      "    # `docker compose up -d --wait` returns as soon as the server is ready.",
       "    healthcheck:",
       `      test: ["CMD-SHELL", "curl -sfk https://localhost:6969${ep}"]`,
       "      interval: 10s",
       "      timeout: 5s",
       "      retries: 30",
       "      start_period: 30s",
+    );
+  } else {
+    L.push(
+      "    # The image ships its own healthcheck, so turning it off means disabling it",
+      "    # explicitly — otherwise the container stays health-gated and --wait blocks.",
+      "    healthcheck:",
+      "      disable: true",
     );
   }
   L.push("    networks:", `      - ${net}`);

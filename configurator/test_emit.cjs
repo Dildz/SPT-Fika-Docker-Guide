@@ -169,11 +169,19 @@ checks([
 state.qumaDiscordWebhook = "";
 state.quma = false;
 
+// Every image declares its own HEALTHCHECK, so "off" has to disable it explicitly —
+// otherwise the container stays health-gated and \`up --wait\` blocks regardless.
 state.healthcheck = false;
 checks([
-  [!emitCompose().includes("healthcheck:"), "no healthcheck when toggled off"],
+  [emitCompose().includes("disable: true"), "healthcheck off disables the image's built-in one"],
+  [!emitCompose().includes("CMD-SHELL"), "no healthcheck test command when toggled off"],
   [emitCompose().includes("condition: service_started"), "deps gate on service_started when no healthcheck"],
   [!emitCompose().includes("service_healthy"), "no service_healthy without a healthcheck"],
+]);
+state.healthcheck = true;
+checks([
+  [emitCompose().includes("CMD-SHELL"), "healthcheck on emits a test command"],
+  [!emitCompose().includes("disable: true"), "healthcheck on does not disable"],
 ]);
 state.healthcheck = true;
 
