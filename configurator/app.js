@@ -38,6 +38,15 @@ const V4_ONLY_FIELDS = [
   "quma", "qumaPort", "qumaAdminPassword", "qumaDiscordWebhook",
 ];
 
+// Default stack base per line: frozen lines name the exact pin they are stuck on, the
+// living line stays on .x. Every service (server, headless, webapp, quma, network)
+// suffixes this.
+const BASES = { "3": "spt-3.11.4", "4": "spt-4.0.13", "4.1": "spt-4.1.x" };
+// Bases we shipped previously. Kept only so a returning user's saved names are still
+// recognised as defaults and get migrated on the next line switch, instead of looking
+// like names they deliberately chose.
+const LEGACY_BASES = ["spt-fika-3.11.4", "spt-fika-4.0.x", "spt-fika-4.1.x"];
+
 // ---- schema: the form surface. Defaults = the most common Fika server. ----
 const TABS = [
   { id: "version", label: "VERSION", fields: [
@@ -159,6 +168,10 @@ function loadState() {
   // loaded under 4.1 would otherwise emit services that have no 4.1 build.
   if (!modsSupported(s)) { s.installFika = false; s.useModsync = false; s.headlessEnabled = false; }
   if (!is40(s)) { s.quma = false; s.webapp = false; s.autoUpdateFika = false; s.autoUpdateModsync = false; }
+  // Migrate names saved under a previous default base, so a returning user sees the
+  // current naming immediately rather than only after switching lines.
+  for (const [k, suffix] of [["serverName", "-server"], ["headlessName", "-headless"], ["webappName", "-webapp"]])
+    if (LEGACY_BASES.some((b) => s[k] === `${b}${suffix}`)) s[k] = `${BASES[s.sptMajor] || BASES["4.1"]}${suffix}`;
   return s;
 }
 function saveState() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }
@@ -673,11 +686,14 @@ function set(key, val, rerenderTab) {
     state.fikaVersion    = val === "3" ? "2.4.8"  : "2.3.2";
     state.modsyncVersion = val === "3" ? "0.11.1" : "0.12.5";
     // Retitle only the stack names still at some line's default (untouched); a name
-    // the user has customised is left alone — no per-field pin needed.
-    const BASES = { "3": "spt-3.11.4", "4": "spt-4.0.13", "4.1": "spt-4.1.x" };
+    // the user has customised is left alone — no per-field pin needed. LEGACY_BASES are
+    // previous defaults still sitting in returning users' localStorage: without them a
+    // saved "spt-fika-4.0.x-server" looks custom, so switching lines would silently stop
+    // renaming and leave a 4.1 stack wearing 4.0 names.
     const newBase = BASES[val];
+    const known = Object.values(BASES).concat(LEGACY_BASES);
     for (const [k, suffix] of [["serverName", "-server"], ["headlessName", "-headless"], ["webappName", "-webapp"]])
-      if (Object.values(BASES).some((b) => state[k] === `${b}${suffix}`)) state[k] = `${newBase}${suffix}`;
+      if (known.some((b) => state[k] === `${b}${suffix}`)) state[k] = `${newBase}${suffix}`;
     // 3.11: frozen, no auto-update; quma + Fika Web App are 4.0-only.
     if (val === "3") { state.autoUpdateFika = false; state.quma = false; state.webapp = false; }
     // Mod toggles follow the line, the same way the version fields do: forced off where
