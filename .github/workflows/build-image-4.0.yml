@@ -1,9 +1,16 @@
 name: Build & publish 4.0 image
 
+# ⚠ SPT 4.0 IS FROZEN AT 4.0.13. Do not run this to chase a newer SPT — 4.1 is the
+# living line (build-image-4.1.yml, separate package). :latest on THIS package stays
+# pinned to 4.0.13 permanently, so nobody running 4.0 is jumped to 4.1 by a pull.
+# Leave tag_latest OFF unless you are deliberately re-cutting 4.0.13 itself.
+#
+# The freeze is SPT-level only: Fika and ModSync still update at runtime on 4.0 via
+# AUTO_UPDATE_FIKA / AUTO_UPDATE_MODSYNC (the 4.0 ModSync line is still shipping), so
+# mod updates never need a rebuild here either.
+#
 # Builds the SPT 4.0 server image from source for amd64 AND arm64 — each on a
-# NATIVE runner (no QEMU) — and publishes one multi-arch tag to GHCR. This is the
-# whole image-maintenance story: bump SPT, run this, done. Fika/ModSync are runtime
-# (downloaded at boot from env vars), so they NEVER need a rebuild.
+# NATIVE runner (no QEMU) — and publishes one multi-arch tag to GHCR.
 #
 # To publish: Actions tab → this workflow → "Run workflow" → enter the SPT version.
 # Auth is the built-in GITHUB_TOKEN — no PAT, no docker login on any machine.
@@ -12,13 +19,13 @@ on:
   workflow_dispatch:
     inputs:
       spt_version:
-        description: "SPT version — a valid tag of sp-tarkov/server-csharp (e.g. 4.0.13)"
+        description: "SPT version — FROZEN at 4.0.13; only change this to re-cut the same pin"
         required: true
         default: "4.0.13"
       tag_latest:
-        description: "Also move the :latest tag to this build"
+        description: "Move :latest to this build (leave OFF — 4.0 :latest is pinned to 4.0.13)"
         type: boolean
-        default: true
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -57,7 +64,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: ./image
+          context: ./image-4.0
           platforms: ${{ matrix.platform }}
           build-args: |
             SPT_MAJOR=4

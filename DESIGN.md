@@ -166,7 +166,7 @@ SPT-Fika-Docker-Guide/               (branch: UI-Configurator)
 ├── README.md                        Landing / guide; links to both surfaces
 ├── LICENSE
 ├── DESIGN.md                        This file
-├── image/                           ── the multi-arch Docker image (§7) ──
+├── image-4.0/                           ── the multi-arch Docker image (§7) ──
 │   ├── Dockerfile                   Multi-major, build-from-source (SPT_MAJOR)
 │   ├── init-server.sh               Version-branched runtime entrypoint
 │   ├── scripts/
@@ -437,11 +437,11 @@ Insurance: keep both the `~/github-repos/fika-headless-docker-3.11` clone and th
 
 ## 12. Phased build plan
 
-Phases are gated on the **image** (`image/`) completing first. The configurator is meaningless without an image to deploy. The two folders evolve independently after Phase 1.
+Phases are gated on the **image** (`image-4.0/`) completing first. The configurator is meaningless without an image to deploy. The two folders evolve independently after Phase 1.
 
-**Phase 1 — Image skeleton (`image/`)**
-- ✅ Monorepo skeleton laid out on `UI-Configurator` (`image/`, `configurator/`, `docs/`); cosmetics + `ModSync.Updater.exe` + `restart-fika.sh` carried over from the old repo.
-- ✅ 4.0 `image/Dockerfile` + `image/init-server.sh` built from source and **verified booting a healthy SPT 4.0 server** (2026-06-27). 3.11 branch present but unverified (§13 Q1 resolved).
+**Phase 1 — Image skeleton (`image-4.0/`)**
+- ✅ Monorepo skeleton laid out on `UI-Configurator` (`image-4.0/`, `configurator/`, `docs/`); cosmetics + `ModSync.Updater.exe` + `restart-fika.sh` carried over from the old repo.
+- ✅ 4.0 `image-4.0/Dockerfile` + `image-4.0/init-server.sh` built from source and **verified booting a healthy SPT 4.0 server** (2026-06-27). 3.11 branch present but unverified (§13 Q1 resolved).
 - Document the env-var contract in `docs/env-vars.md` — this becomes the contract the configurator targets. ← next
 
 **Phase 2 — Image features**
@@ -467,7 +467,7 @@ Phases are gated on the **image** (`image/`) completing first. The configurator 
 - Idempotent; safe to re-run.
 
 **Phase 6 — CI** (workflows in the one repo)
-- ✅ **`image/` publish workflow built** (`.github/workflows/build-image.yml`): `workflow_dispatch` (SPT version input) → builds amd64 + arm64 on **native runners** (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU), pushes by digest, merges to one multi-arch GHCR tag via `imagetools`. Auth = built-in `GITHUB_TOKEN` (no PAT). This replaces the manual 2-box push as the image-maintenance path. *One-time:* file must reach `main` (default-branch rule for dispatch); flip the new GHCR package to public after first run. Fika/ModSync are runtime → never trigger a rebuild.
+- ✅ **`image-4.0/` publish workflow built** (`.github/workflows/build-image.yml`): `workflow_dispatch` (SPT version input) → builds amd64 + arm64 on **native runners** (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU), pushes by digest, merges to one multi-arch GHCR tag via `imagetools`. Auth = built-in `GITHUB_TOKEN` (no PAT). This replaces the manual 2-box push as the image-maintenance path. *One-time:* file must reach `main` (default-branch rule for dispatch); flip the new GHCR package to public after first run. Fika/ModSync are runtime → never trigger a rebuild.
 - Later: auto-trigger on upstream SPT releases (schedule + version check); `configurator/` deploy workflow.
 
 **Merge `UI-Configurator` → `main`** when Phase 4 ships and is verified end-to-end. No repo rename — the repo keeps its name (and its stars).

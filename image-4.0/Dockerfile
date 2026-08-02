@@ -5,7 +5,7 @@
 # Phase 1: the 4.0 (C#/.NET) path is implemented and the focus. The 3.11 (Node) path
 # is present but UNVERIFIED (see DESIGN.md §13). Select the major with --build-arg.
 #
-#   docker build image/ -t spt-fika-server:4.0.13 \
+#   docker build image-4.0/ -t spt-fika-server:4.0.13 \
 #       --build-arg SPT_MAJOR=4 --build-arg SPT_VERSION=4.0.13
 #
 # Native multi-arch (amd64 + arm64) comes from compiling the server from source per
