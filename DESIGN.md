@@ -1,7 +1,24 @@
 # SPT-FIKA-Docker — Design Document
 
 > Repo: `Dildz/SPT-Fika-Docker-Guide` (monorepo) · Rework branch: `UI-Configurator` (merges to `main` when ready; `main` stays the current stable guide). No repo rename.
-> Status: Design — no implementation yet. Drafted 2026-05-27, revised 2026-05-27 evening to a web-configurator-first UX after reviewing [setuphytale.com](https://setuphytale.com). Revised 2026-06-27 to **build the SPT 4.0 server from source** and **base headless on Outshynd's wine-tkg image** (see §4, §7, §11).
+> Status: **Built and shipped.** Drafted 2026-05-27, revised 2026-05-27 evening to a web-configurator-first UX after reviewing [setuphytale.com](https://setuphytale.com). Revised 2026-06-27 to **build the SPT 4.0 server from source** and **base headless on Outshynd's wine-tkg image** (see §4, §7, §11). Revised 2026-08-02 for **three SPT lines** (§7, §7a).
+>
+> **Sections below marked _(historical)_ record how we got here and are deliberately not rewritten.** Everything else describes what the repo does today.
+
+## 0. Current shape (2026-08-02)
+
+Three SPT lines, one folder and one GHCR package each, so a `docker pull` never carries anyone across a major version:
+
+| Line | Folder | Package | Built how | Mods |
+|---|---|---|---|---|
+| **4.1** — living | `image-4.1/` | `spt-fika-server-4.1.x:{4.1.0,latest}` | **derived** from the official image (§7a) | none yet — bare server |
+| **4.0** — frozen at `4.0.13` | `image-4.0/` | `spt-fika-server:{4.0.13,latest}` | from source (§7) | Fika · ModSync · headless · Quartermaster · Web App |
+| **3.11** — frozen at `3.11.4` | `image-3.11/` | `spt-fika-server-3.11.x:3.11.4` | from source, Node not .NET (§7) | Fika 2.4.8 · Corter ModSync 0.11.1 (both pinned) |
+
+Two ideas do the load-bearing work:
+
+1. **The bind mount is the game root** on 4.0 and 4.1 — the server runs from a subdirectory of it, so a client-file mod's `../BepInEx` resolves *inside* the mount and survives a container recreate. (3.11 is flat: server at the mount root.) **The server subdirectory is `SPT/` on 4.0 and `SPT_Runtime/` on 4.1** — SPT renamed it.
+2. **Frozen means SPT-frozen, not mod-frozen.** 4.0 never gets another SPT rebuild and its `:latest` is pinned to 4.0.13 forever, but Fika and ModSync still update at runtime through `AUTO_UPDATE_*`, because the 4.0 ModSync line is still shipping. Only 3.11 is frozen all the way down.
 
 ---
 
@@ -166,30 +183,37 @@ SPT-Fika-Docker-Guide/               (branch: UI-Configurator)
 ├── README.md                        Landing / guide; links to both surfaces
 ├── LICENSE
 ├── DESIGN.md                        This file
-├── image-4.0/                           ── the multi-arch Docker image (§7) ──
-│   ├── Dockerfile                   Multi-major, build-from-source (SPT_MAJOR)
-│   ├── init-server.sh               Version-branched runtime entrypoint
+├── image-4.1/                           ── SPT 4.1, the living line (§7a) ──
+│   ├── Dockerfile                   Derived from the official image; re-laid-out to a game-root mount
+│   └── init-server.sh               Seeds the game root, runs the server from SPT_Runtime/
+├── image-4.0/                           ── SPT 4.0, frozen at 4.0.13 (§7) ──
+│   ├── Dockerfile                   Build-from-source + release-archive client scaffold
+│   ├── init-server.sh               Seeds the game root, runs the server from SPT/
 │   ├── scripts/
-│   │   ├── install_fika.sh · auto_update.sh · profile_backup.sh · install_other_mods.sh
-│   │   ├── enforce_spt4_structure.sh        (only when SPT_MAJOR=4)
-│   │   └── restart-fika.sh                  (carried from old repo; to generalize)
-│   ├── cron/profile_backup.cron
+│   │   ├── install_fika.sh · install_modsync.sh
+│   │   ├── test_modsync.sh                   offline self-check
+│   │   └── restart-fika.sh                   (carried from old repo)
 │   ├── cosmetics/                   HD-trader-images/ · SPT-launcher-images/ · randomize-bg.sh   ✓ carried
-│   ├── mod-pack/ModSync.Updater.exe         Opt-in client-side installer                        ✓ carried
-│   └── headless/                    wine-tkg + ntsync image, Outshynd base (§11)
-│       └── Dockerfile · entrypoint.sh · run-game.sh · monitor-logs.sh
+│   └── mod-pack/ModSync.Updater.exe          Opt-in client-side installer                       ✓ carried
+├── image-3.11/                          ── SPT 3.11, frozen at 3.11.4, flat layout (§7) ──
+│   ├── Dockerfile · init-server.sh
+│   └── scripts/                     install_fika.sh · install_modsync.sh · install_mods.sh (install-once)
 ├── configurator/                    ── static single-page web app (Phase 3) ──
-│   ├── index.html                  page: hero · quick-start · tabs+preview · checklist
-│   ├── app.js                      schema (form surface) · emitters (compose/.env/README) · validation
+│   ├── index.html                  page: hero · quick-start · tabs+preview · field guide · FAQ
+│   ├── app.js                      line predicates · schema · emitters (compose/.env/README) · validation
 │   ├── zip.js                      tiny store-only zip writer (browser + Node)
-│   ├── styles.css
-│   ├── test_emit.cjs · test_zip.cjs   offline checks (node, no browser)
-│   └── deploy/                      Dockerfile (nginx) · docker-compose.yml · caddy-snippet.txt
+│   ├── styles.css · README.md
+│   └── test_emit.cjs · test_zip.cjs   offline checks (node, no browser)
+├── .github/workflows/               build-image-{4.1,4.0,3.11}.yml — one per line, multi-arch → GHCR
 └── docs/
     ├── env-vars.md                  AUTHORITATIVE contract — configurator's form mirrors this
-    ├── architecture.md · operations.md · troubleshooting.md · version-compatibility.md
-    └── operations-notes.txt         raw notes carried from old repo → fold into operations.md   ✓ carried
+    └── operations-notes.txt         raw notes carried from old repo                              ✓ carried
 ```
+
+> Not built: the `headless/` image (§11 — still the interim zhliau image), `cron/profile_backup`,
+> `auto_update.sh` and `install_other_mods.sh` (mod installs moved to Quartermaster's web UI), and the
+> split `architecture.md` / `operations.md` / `troubleshooting.md` docs. `enforce_spt4_structure.sh` was
+> folded into `init-server.sh`.
 
 **Why monorepo (was three repos):** for a solo maintainer, one place to clone and track beats juggling repos; and the image and configurator share one env-var contract (`docs/env-vars.md` ↔ `configurator/app.js` schema), so co-locating keeps that contract honest. The earlier "configurator must be private" idea is moot: nothing in it is secret — it's a dumb client-side YAML emitter.
 
@@ -210,9 +234,11 @@ spt-fika-bundle-<timestamp>/
 
 ---
 
-## 7. Single-codebase, dual-version handling
+## 7. Per-line version handling
 
-The hard part. **The two SPT majors are built completely differently**, so the Dockerfile branches its *build* stage on `SPT_MAJOR` and converges on a shared runtime stage. `init-server.sh` is version-aware at runtime.
+The hard part. **The SPT lines are built completely differently**, so each lives in its own folder with its own Dockerfile rather than one Dockerfile branching three ways. The original design had a single multi-major image branching on `SPT_MAJOR`; that survives inside `image-4.0/` (which still carries a vestigial `build-v3` stage), but 3.11 and 4.1 are built from their own folders.
+
+> **Why the split won.** A frozen line and a living line want opposite things from a shared Dockerfile: the frozen one wants nothing to ever change, the living one wants to track upstream. Separate folders let 3.11 and 4.0 be genuinely build-once artifacts while 4.1 moves. The cost is three Dockerfiles; the alternative was one Dockerfile nobody could safely edit.
 
 ### 4.0 path — build from source (adopted from Outshynd)
 
@@ -293,6 +319,31 @@ The cost is conditional logic in a few places. The benefit is one repo, one inst
 
 ---
 
+## 7a. 4.1 path — derive from the official image (added 2026-08-02)
+
+SPT started publishing its **own** Docker image (`ghcr.io/sp-tarkov/server-csharp`, added upstream 2026-07-05, arm64 a day later). It is a real multi-arch build, so compiling 4.1 from source ourselves would buy nothing — an SPT bump becomes a tag change instead of a build.
+
+What we do change is the **filesystem layout**, and only that:
+
+| | upstream image | ours |
+|---|---|---|
+| app | `/opt/spt` (WORKDIR) | `<mount>/SPT_Runtime/` |
+| persisted | `/opt/spt/user` only (`VOLUME`) | the **whole game root** is the mount |
+| game root | `/opt` — inside the container | the bind mount itself |
+| client scaffold | none | `BepInEx/`, doorstop, `winhttp.dll`, `EscapeFromTarkov_Data/` |
+| env | `SPT_IP` / `SPT_PORT` / `SPT_BACKEND_IP` / `PUID` / `PGID` | our contract (`docs/env-vars.md`) |
+
+Upstream's layout is coherent for them: a headless Linux server has no client, so it needs no BepInEx and no game root. It is wrong for us, because a client-file mod (ModSync) writes relative to the server — `../BepInEx`, `../ModSync.Updater.exe` — which under their layout lands on the ephemeral container filesystem and is lost on recreate.
+
+Two implementation details that matter:
+
+- **Upstream is a build stage, never the runtime base.** Using it as the base would inherit its `VOLUME /opt/spt/user` declaration, which then follows every container as a stray anonymous volume we neither use nor clean up. So: `COPY --from=upstream /opt/spt /opt/gameroot/SPT_Runtime` onto a clean `aspnet:10.0`.
+- **The client scaffold comes from the release archive**, in its own stage so `curl`/`p7zip` never reach the runtime image. Fetch `SPT-${SPT_RELEASE}.7z`, assert it is shaped as expected, discard the release's own (Windows) server, trim the SPT-client BepInEx bits. `SPT_RELEASE` (`<ver>-<build>-<hash>`) is a **different identifier** from `SPT_VERSION` — bump both together.
+
+> **`SPT/` → `SPT_Runtime/`.** SPT 4.1 renamed the server directory in a real install ([manual install instructions](https://wiki.sp-tarkov.com/en/Manual-Install-Instructions)). The server itself does not read the name — it resolves `user/` relative to its own directory — so this is a match-the-convention decision, not a functional one. It matters for anyone copying paths from the wiki, and for the ModSync 4.1 port.
+
+---
+
 ## 8. Multi-arch handling (x86 + ARM)
 
 The **image** ships as a multi-arch manifest (`linux/amd64` + `linux/arm64`) on GHCR — a single `image:` reference resolves correctly on either arch.
@@ -364,16 +415,31 @@ The user-facing surface. A single static page (plain HTML/CSS/JS) at `setup-spt-
 
 Six tabs. Defaults match the most common setup; everything is changeable.
 
-| Tab | Purpose | Maps to (in §3 list) |
-|---|---|---|
-| **GENERAL** | Server identity + paths + ports + listen address | server name, install path, ports |
-| **VERSION** | SPT major (3.11 / 4.0), SPT version, Fika version | SPT major, SPT minor, Fika version |
-| **HEADLESS** | Headless toggle (auto-disabled on aarch64), profile id, restart-on-raid-end, bot caps per map | headless container |
-| **MODS** | Empty / curated picks / BYO list, ModSync toggle, list URL field | mod selection, ModSync |
-| **OPS** | Profile backups (enable / frequency / retention), auto-update toggles, restart policy, host-side log capture | profile backup, auto-update, log capture, restart policy |
-| **ADV** | UID/GID, custom env passthrough, dev/debug toggles, MoreBots & ABPS bot-cap overrides | UID/GID, edge-case operational knobs |
+| Tab | Purpose |
+|---|---|
+| **VERSION** | SPT line (4.1 / 4.0 / 3.11), SPT version, Fika toggle + version |
+| **HEADLESS** | Headless toggle, name, directory, profile count + id, image tag, Fika headless plugin version |
+| **GENERAL** | Server identity + data dir + game port + host arch + listen address |
+| **OPS** | Restart policy, auto-update toggles, verbose logs, healthcheck |
+| **ADV** | UID/GID, user/group names |
+| **QoL** | ModSync, Quartermaster, Fika Web App |
 
 Tab content detail (field-by-field — names, defaults, helpers, validation, env-var mapping) lives in the `TABS` schema in `configurator/app.js`. The schema is the single source of truth; the form renders it; the emitters consume the resulting state. **DESIGN.md does not duplicate the field list** — `app.js` is authoritative and will drift over time.
+
+#### Gating across three lines (2026-08-02)
+
+The option surface is not uniform: a line only offers what has a build for it. This was the single most bug-prone part of adding 4.1, and the shape is worth recording.
+
+The old code asked `sptMajor !== "3"` to mean *"is 4.0"*. That was true while there were exactly two lines. Add a third and the same expression silently means "4.0 **or** 4.1" — which would have offered Fika, ModSync, the headless client, Quartermaster and the Web App on a line where none of them exist. The fix is to ask the question you actually mean:
+
+- `is311` / `is40` / `is41` — the line itself.
+- `isFrozen` = 3.11 or 4.0 — pins the SPT version field read-only and suppresses the Forge auto-fill, so a frozen line can never be handed a tag we publish no image for.
+- **`modsSupported` = *not* 4.1** — is there a mod ecosystem at all? True for 3.11 (Fika 2.4.8 + Corter ModSync 0.11.1, both pinned) and 4.0.
+- **`is40`** — the narrower 4.0-only extras: Quartermaster, the Fika Web App, `AUTO_UPDATE_*`.
+
+Those last two are **different questions**, and conflating them is the trap: 3.11 has mods but not the 4.0-only extras. Two field lists (`MOD_FIELDS`, `V4_ONLY_FIELDS`) name which fields answer to which, so a future 4.1 Fika release is one edit rather than a hunt through conditionals.
+
+Switching lines resets the mod toggles the same way it already reset the version fields — forced off where the line has no build, back to their defaults where it does. Otherwise 4.1 → 4.0 leaves Fika off, which is the one thing nobody picks 4.0 for.
 
 ### 9c. Live preview
 
@@ -402,14 +468,21 @@ Architecture-aware: on aarch64 hosts, the bundle omits headless service blocks e
 
 ## 10. Server image publication
 
-- Registry: **GHCR** under `ghcr.io/dildz/spt-fika-server` (under your account).
-- Tags:
-  - `:3.11.4` / `:4.0.13` — exact SPT version
-  - `:3.11` / `:4.0` — track minor
-  - `:lts` → currently `:3.11`
-  - `:latest` → currently `:4.0`
-- Built via `docker buildx build --platform linux/amd64,linux/arm64 --push` with `SPT_MAJOR` and `SPT_VERSION` build args matrix.
-- Optional Docker Hub mirror later (kept lazy until publication needs demand it).
+Registry: **GHCR**, all public, all multi-arch (amd64 + arm64). **One package per line** — the shared-package-with-many-tags plan below was dropped, because a single `:latest` across majors means one `docker pull` can move somebody from 4.0 to 4.1 and break their profiles and mods.
+
+| Package | Tags | Moves? |
+|---|---|---|
+| `ghcr.io/dildz/spt-fika-server-4.1.x` | `:4.1.0`, `:latest` | yes — the living line |
+| `ghcr.io/dildz/spt-fika-server` | `:4.0.13`, `:latest` | **no** — `:latest` pinned to 4.0.13 permanently |
+| `ghcr.io/dildz/spt-fika-server-3.11.x` | `:3.11.4` | no — never tagged `:latest` |
+
+4.0 keeps the original unsuffixed package name: renaming a live public image is a coordinated republish, not a one-line change, and anyone already pulling it keeps a working server.
+
+Built by CI, one workflow per line (`.github/workflows/build-image-{4.1,4.0,3.11}.yml`): each arch builds on its **own native runner** (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU), pushes by digest, and a merge job stitches one multi-arch tag via `docker buildx imagetools create`. Auth is the built-in `GITHUB_TOKEN` — no PAT, no `docker login` on any machine.
+
+> **Dispatch gotcha:** GitHub only shows a workflow's *Run workflow* button for files on the **default branch**, so each workflow also exists on `main` purely to surface the button. A dispatch runs the copy from the branch you select — pick `UI-Configurator`, which is the one with the `image-*/` folders. `main`'s copies are never executed and are allowed to be stale.
+
+> ~~Optional Docker Hub mirror later.~~ The live 4.0.x production stack still runs a *separate* Docker Hub image (`dildz/spt-fika-4.0.x-x86_64`), unrelated to these packages.
 
 ---
 
@@ -432,6 +505,8 @@ What we add on top:
 Still **x86-only** (§2): Wine+EFT can't run on ARM, so the headless service is simply absent from ARM bundles.
 
 Insurance: keep both the `~/github-repos/fika-headless-docker-3.11` clone and the Outshynd file set as references; the Outshynd gists are the provenance for the base.
+
+> **Status 2026-08-02: not built.** The configurator still emits the interim **zhliau** image, and our own Outshynd-derived headless remains unstarted. Separately, **no headless image exists for 4.1 at all** — a headless client is a full Fika client, so it cannot exist before Fika ships 4.1. The configurator therefore greys out the whole HEADLESS tab on 4.1, alongside ARM.
 
 ---
 
@@ -467,8 +542,14 @@ Phases are gated on the **image** (`image-4.0/`) completing first. The configura
 - Idempotent; safe to re-run.
 
 **Phase 6 — CI** (workflows in the one repo)
-- ✅ **`image-4.0/` publish workflow built** (`.github/workflows/build-image.yml`): `workflow_dispatch` (SPT version input) → builds amd64 + arm64 on **native runners** (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU), pushes by digest, merges to one multi-arch GHCR tag via `imagetools`. Auth = built-in `GITHUB_TOKEN` (no PAT). This replaces the manual 2-box push as the image-maintenance path. *One-time:* file must reach `main` (default-branch rule for dispatch); flip the new GHCR package to public after first run. Fika/ModSync are runtime → never trigger a rebuild.
+- ✅ **Publish workflow built** — originally one `build-image.yml`, now **one per line**: `build-image-4.1.yml` · `build-image-4.0.yml` · `build-image-3.11.yml`. `workflow_dispatch` (SPT version input) → builds amd64 + arm64 on **native runners** (`ubuntu-24.04` + `ubuntu-24.04-arm`, no QEMU), pushes by digest, merges to one multi-arch GHCR tag via `imagetools`. Auth = built-in `GITHUB_TOKEN` (no PAT). This replaces the manual 2-box push as the image-maintenance path. *One-time:* each file must also reach `main` (default-branch rule for dispatch). Fika/ModSync are runtime → never trigger a rebuild. **Note:** the 4.1 package came out public without needing a visibility flip, unlike the earlier assumption that new GHCR packages default to private.
 - Later: auto-trigger on upstream SPT releases (schedule + version check); `configurator/` deploy workflow.
+
+**Phase 7 — Three lines: lock 4.0, add 4.1 — DONE 2026-08-02**
+- ✅ `image/` → **`image-4.0/`**, frozen at 4.0.13: CI carries a frozen notice, `tag_latest` now defaults to **false** so a stray dispatch cannot drag `:latest` off the pin. Installers deliberately **not** stripped — the 4.0 ModSync line still ships, and `install_modsync.sh` only reinstalls when `AUTO_UPDATE_MODSYNC=true`, so removing the knob would strand 0.12.7 behind a manual mod-dir delete. This is the one way 4.0 differs from fully-frozen 3.11.
+- ✅ **`image-4.1/`** added (§7a) — derived from the official image, game-root layout, `SPT_Runtime/`, bare server. Published multi-arch as `spt-fika-server-4.1.x:{4.1.0,latest}`; both legs built in under a minute because nothing compiles. Boot-verified twice: locally, then again from the published artifact on a wiped mount.
+- ✅ **Configurator** gained the 4.1 line and locked the frozen ones (§9b) — read-only version field, Forge auto-fill restricted to 4.1, mod surface gated per line, `set()`-path test added.
+- Not done, deliberately: no `SPT_BACKEND_IP` field (the image defaults it to `0.0.0.0` under `LISTEN_ALL_NETWORKS`, as 4.0 does in production); `image-4.0/`'s dead `build-v3` stage left alone, since a frozen image gains nothing from touching its build.
 
 **Merge `UI-Configurator` → `main`** when Phase 4 ships and is verified end-to-end. No repo rename — the repo keeps its name (and its stars).
 

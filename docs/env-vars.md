@@ -58,7 +58,7 @@ Each SPT line is a **separate package**, so pulling an update never moves you ac
 
 ## Runtime — core (live)
 
-Read by `init-server.sh` on every boot.
+Read by `init-server.sh` on every boot. **Applies to all three lines** unless noted.
 
 | Var | Default | Meaning |
 |---|---|---|
@@ -66,9 +66,23 @@ Read by `init-server.sh` on every boot.
 | `PGID` | `1000` | GID the server runs as. |
 | `USER_NAME` | `spt` | Name for a created user (ignored if `PUID` already exists). |
 | `GROUP_NAME` | `spt` | Name for a created group (ignored if `PGID` already exists). |
-| `SPT_MAJOR` | baked from build | Picks the run command (`dotnet SPT.Server.dll` for 4, `SPT.Server.exe` for 3). Normally inherited from the image; override only to force a path. |
+| `SPT_MAJOR` | baked from build | **4.0 / 3.11 only.** Picks the run command (`dotnet SPT.Server.dll` for 4, `SPT.Server.exe` for 3). Normally inherited from the image; override only to force a path. 4.1 is a single-line image and ignores it. |
 | `VERBOSE_LOGS` | `true` | `false` filters high-frequency request spam (`keepalive`, `ping`, Fika `heartbeat`/`items`). |
 | `LISTEN_ALL_NETWORKS` | `false` | `true` patches `http.json` to bind `0.0.0.0` (needed for LAN / Fika clients). |
+
+### Runtime — 4.1 only
+
+| Var | Default | Meaning |
+|---|---|---|
+| `SPT_PORT` | `6969` | Port the server listens on **inside** the container, written to `http.json`. Change the compose port mapping too. |
+| `SPT_BACKEND_IP` | _(unset)_ | The address the server **advertises to game clients** — not what it binds to. Leave unset for same-host play; set the host's reachable IP for LAN/remote. When unset and `LISTEN_ALL_NETWORKS=true`, it advertises `0.0.0.0`, which is what the 4.0 image has always done in production. |
+
+> **Where the files land on 4.1.** The bind mount is the game root and the server lives in
+> **`SPT_Runtime/`** (4.0 uses `SPT/` — SPT renamed it). So profiles are at
+> `<mount>/SPT_Runtime/user/profiles`, server mods at `<mount>/SPT_Runtime/user/mods`, and the
+> client-facing scaffold (`BepInEx/`, `EscapeFromTarkov_Data/`, doorstop, `winhttp.dll`) sits beside
+> `SPT_Runtime/` at the mount root. Migrating from the official SPT image? Its volume is the
+> *`user/` folder only* — that content belongs in `<mount>/SPT_Runtime/user/`, not at the mount root.
 
 ## Runtime — Fika (Phase 2)
 
