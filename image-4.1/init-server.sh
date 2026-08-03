@@ -51,20 +51,55 @@ setup_user_and_group() {
     USER_NAME="$(getent passwd "$PUID" | cut -d: -f1)"
 }
 
-# First boot: copy the image baseline into the (empty) bind mount so the install
-# persists on the host. Existing installs are left alone — SPT version updates are a
-# pull-a-new-tag-and-reseed job, not something to do behind the admin's back.
+# Copy the image baseline into the bind mount, on first boot and on an SPT update.
+#
+# The mount is the game root, so the server binaries live on the HOST, not in the
+# image. Pulling a new tag therefore does not update SPT by itself — something has to
+# copy the new files out. That something is here.
+#
+# $MARKER records which version was copied in; SPT_VERSION says which one the image
+# ships. The env var is trustworthy because the compose tag is built from it
+# (image: …-4.1.x:${SPT_VERSION}), so it cannot claim a version the image isn't.
+#
+#   marker missing        → copy. An install predating this marker, so we cannot know
+#                           what it holds; the copy is an overlay and the version we
+#                           have is the one we want, so refreshing is both safe and
+#                           correct. (image-4.0 adopts instead — there the install is
+#                           mature and the source is a GitHub download, not a local dir.)
+#   marker == SPT_VERSION → nothing to do. Every normal restart lands here.
+#   marker != SPT_VERSION → the admin bumped the tag and pulled. Copy.
+#
+# ponytail: overlay copy, no delete pass — files upstream REMOVED linger, and
+# SPT_Data/configs are replaced by the new defaults (which is what SPT's own update
+# instructions say to do). user/ in the image is empty, so profiles, mods and certs
+# are never touched. If a release ever needs stale files gone, diff the two trees here.
 seed_server() {
+    local marker="$SERVER/.spt-version"
+    local installed=""
+    [ -f "$marker" ] && installed="$(cat "$marker")"
+
     if [ -z "$(ls -A "$SERVER" 2>/dev/null)" ]; then
         echo -e "${orange}Note: $SERVER is empty — bind-mount a host dir here to persist server files.${reset}"
     fi
+
     if [ ! -e "$SERVER_BIN" ]; then
         echo "First boot — seeding SPT ${SPT_VERSION:-4.1} into $SERVER (mount = game root, server in SPT_Runtime/)"
         mkdir -p "$SERVER"
         cp -a "$IMAGE_SRC/." "$SERVER/"
+        echo "${SPT_VERSION:-4.1}" > "$marker"
+    elif [ "$installed" = "${SPT_VERSION:-4.1}" ]; then
+        echo "SPT v${installed} already installed in $SPT_DIR — leaving server files as-is"
     else
-        echo "Existing server files found in $SPT_DIR — leaving them as-is"
+        if [ -n "$installed" ]; then
+            echo "Updating SPT v${installed} → v${SPT_VERSION:-4.1} in $SPT_DIR"
+        else
+            echo "Untracked install in $SPT_DIR — refreshing it to v${SPT_VERSION:-4.1}"
+        fi
+        echo "  (server files only — profiles, mods and BepInEx plugins are left alone)"
+        cp -a "$IMAGE_SRC/." "$SERVER/"
+        echo "${SPT_VERSION:-4.1}" > "$marker"
     fi
+
     mkdir -p "$SPT_DIR/user/mods" "$SPT_DIR/user/profiles" "$SPT_DIR/user/logs" "$SPT_DIR/user/certs"
     chown -R "$PUID:$PGID" "$SERVER"
 }
@@ -111,8 +146,12 @@ run_server() {
     fi
 }
 
-banner
-setup_user_and_group
-seed_server
-configure_network
-run_server
+# Sourcing this file defines the functions without running them, so test_seed.sh can
+# drive seed_server() against temp dirs. Any real container start executes it.
+if [ "${INIT_SERVER_LIB:-}" != "1" ]; then
+    banner
+    setup_user_and_group
+    seed_server
+    configure_network
+    run_server
+fi
