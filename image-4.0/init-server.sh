@@ -15,6 +15,7 @@ SPT_MAJOR="${SPT_MAJOR:-4}"
 VERBOSE_LOGS="${VERBOSE_LOGS:-true}"
 LISTEN_ALL_NETWORKS="${LISTEN_ALL_NETWORKS:-false}"
 USE_MODSYNC="${USE_MODSYNC:-false}"
+SPT_PORT="${SPT_PORT:-6969}"
 
 # ---- paths ----
 # The bind mount is the GAME ROOT (matches a real SPT 4 + Fika install): the SPT server
@@ -77,15 +78,30 @@ gate_modsync_scaffold() {
     fi
 }
 
-# Make the server bind to all interfaces (needed for LAN / Fika clients).
-listen_all_networks() {
+# Bind address and listening port both live in http.json.
+#
+# .port/.backendPort must move TOGETHER: the server binds .port, but every URL it hands
+# a client — including the websocket one — is built as "<host>:<backendPort>"
+# (HttpServerHelper.buildUrl). Publishing a different host port on its own therefore
+# tells clients to talk to a port nothing listens on, so SPT_PORT changes the port
+# INSIDE the container and the compose mapping stays 1:1.
+configure_network() {
     local http="$SPT_DIR/SPT_Data/configs/http.json"
-    if [ "$LISTEN_ALL_NETWORKS" = "true" ] && [ -f "$http" ]; then
-        local patched
-        patched="$(jq '.ip = "0.0.0.0" | .backendIp = "0.0.0.0"' "$http")" \
-            && printf '%s' "$patched" > "$http"
-        echo "Server set to listen on all networks (0.0.0.0)"
+    if [ ! -f "$http" ]; then
+        [ "$LISTEN_ALL_NETWORKS" = "true" ] && echo "WARNING: $http not found — skipping network config" >&2
+        return
     fi
+
+    local filter='.port = $port | .backendPort = $port'
+    [ "$LISTEN_ALL_NETWORKS" = "true" ] && filter="$filter | .ip = \"0.0.0.0\" | .backendIp = \"0.0.0.0\""
+
+    local patched
+    patched="$(jq --argjson port "$SPT_PORT" "$filter" "$http")" \
+        && printf '%s' "$patched" > "$http"
+
+    [ "$LISTEN_ALL_NETWORKS" = "true" ] && echo "Server set to listen on all networks (0.0.0.0)"
+    [ "$SPT_PORT" != "6969" ] && echo "Server port set to $SPT_PORT (map it 1:1 in compose)"
+    return 0
 }
 
 # Phase 2 installers: Fika server mod + ModSync. Each script is env-driven and no-ops
@@ -121,6 +137,6 @@ banner
 setup_user_and_group
 seed_server
 gate_modsync_scaffold
-listen_all_networks
+configure_network
 run_installers
 run_server

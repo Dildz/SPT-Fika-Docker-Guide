@@ -59,6 +59,28 @@ checks([
   [!emitEnv().includes("INSTALL_FIKA"), "4.1 suppresses carried-over Fika vars"],
 ]);
 state.useModsync = false; state.headlessEnabled = false; state.quma = false; state.webapp = false;
+state.installFika = false;
+
+// ---- game port ----
+// A non-default port is how a second stack runs alongside an existing one, and it must
+// reach the SERVER, not just the host side of the mapping: SPT builds every URL it
+// hands a client — the websocket one included — as "<host>:<backendPort>" read from
+// http.json (HttpServerHelper.buildUrl, same on all three lines). A host-side-only
+// remap therefore advertises a port nothing listens on. So: SPT_PORT emitted on every
+// line, mapping always 1:1, healthcheck follows.
+state.gamePort = 6979;
+// NOTE: this whole file body is injected as a template literal, so no backticks and
+// no \${} in here — plain concatenation only.
+const portChecks = (line, ep) => checks([
+  [emitCompose().includes('- "6979:6979"'), line + " maps the game port 1:1"],
+  [emitEnv().includes("SPT_PORT=6979"), line + " emits SPT_PORT so the server binds and advertises it"],
+  [emitCompose().includes("https://localhost:6979" + ep), line + " healthcheck follows the game port"],
+  [!emitCompose().includes(":6969"), line + " leaves no 6969 behind"],
+]);
+portChecks("4.1", "/health");
+state.sptMajor = "4"; state.sptVersion = "4.0.13"; portChecks("4.0", "/launcher/ping");
+state.sptMajor = "3"; state.sptVersion = "3.11.4"; portChecks("3.11", "/launcher/ping");
+state.sptMajor = "4"; state.sptVersion = "4.0.13"; state.gamePort = 6969;
 
 // ---- everything below exercises the mod ecosystem, which lives on 4.0 ----
 state.sptMajor = "4"; state.sptVersion = "4.0.13"; state.installFika = true;

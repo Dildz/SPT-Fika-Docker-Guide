@@ -95,7 +95,7 @@ const TABS = [
     { key: "dataDir", label: "Data directory", type: "text", def: "../server",
       help: "Host path bind-mounted to /opt/server (profiles, mods, configs persist here). Default assumes the compose file sits in a files/ subfolder (../server = sibling folder). For compose + data in one folder use ./server, or set an absolute path." },
     { key: "gamePort", label: "Game port", type: "number", def: 6969,
-      help: "Host port mapped to the server's 6969. Clients connect here.", min: 1, max: 65535 },
+      help: "Port clients connect to (SPT_PORT). The server binds it and advertises it, and the compose mapping is 1:1 — change it to run a second stack alongside an existing one. Needs an image built 2026-08 or later; older ones always listen on 6969.", min: 1, max: 65535 },
     { key: "arch", label: "Host architecture", type: "radio", def: "x86_64",
       options: [["x86_64", "x86_64 (Intel/AMD)"], ["aarch64", "aarch64 (ARM)"]],
       help: "Headless is x86-only — selecting ARM disables the HEADLESS tab." },
@@ -241,7 +241,11 @@ function emitCompose() {
     `    container_name: ${svc}`,
     `    restart: ${s.restartPolicy}`,
     "    ports:",
-    `      - "${s.gamePort}:6969"`,
+    // 1:1, never a remap. SPT builds every URL it hands a client — including the
+    // websocket one — as "<host>:<backendPort>" read from http.json, so publishing a
+    // different host port on its own advertises a port nothing listens on. All three
+    // entrypoints move .port and .backendPort together via SPT_PORT instead.
+    `      - "${s.gamePort}:${s.gamePort}"`,
     "    env_file: .env",
     "    volumes:",
     `      - ${s.dataDir}:/opt/server`,
@@ -263,7 +267,7 @@ function emitCompose() {
       "    # Tighter than the image's built-in check (30s), so dependent services and",
       "    # `docker compose up -d --wait` react as soon as the server is actually ready.",
       "    healthcheck:",
-      `      test: ["CMD-SHELL", "curl -sfk https://localhost:6969${ep}"]`,
+      `      test: ["CMD-SHELL", "curl -sfk https://localhost:${s.gamePort}${ep}"]`,
       "      interval: 10s",
       "      timeout: 5s",
       "      retries: 30",
@@ -418,6 +422,8 @@ function emitEnv() {
     `INSTALL_FIKA=${s.installFika}`,
     `FIKA_VERSION=${s.fikaVersion}`,
   );
+  // The port the server binds to AND advertises to clients. All three lines read it.
+  L.push(`SPT_PORT=${s.gamePort}`);
   L.push(
     `LISTEN_ALL_NETWORKS=${s.listenAll}`,
     `VERBOSE_LOGS=${s.verboseLogs}`,

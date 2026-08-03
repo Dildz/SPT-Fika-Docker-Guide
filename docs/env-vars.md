@@ -69,12 +69,12 @@ Read by `init-server.sh` on every boot. **Applies to all three lines** unless no
 | `SPT_MAJOR` | baked from build | **4.0 / 3.11 only.** Picks the run command (`dotnet SPT.Server.dll` for 4, `SPT.Server.exe` for 3). Normally inherited from the image; override only to force a path. 4.1 is a single-line image and ignores it. |
 | `VERBOSE_LOGS` | `true` | `false` filters high-frequency request spam (`keepalive`, `ping`, Fika `heartbeat`/`items`). |
 | `LISTEN_ALL_NETWORKS` | `false` | `true` patches `http.json` to bind `0.0.0.0` (needed for LAN / Fika clients). |
+| `SPT_PORT` | `6969` | Port the server binds **and advertises**, written to `http.json` as both `.port` and `.backendPort`. **Map it 1:1 in compose (`6979:6979`), never remap.** SPT builds every URL it hands a client — the websocket one included — as `<host>:<backendPort>` from this file, so publishing a different host port advertises a port nothing listens on. Added 2026-08 to all three lines; images built before then always listen on `6969`. |
 
 ### Runtime — 4.1 only
 
 | Var | Default | Meaning |
 |---|---|---|
-| `SPT_PORT` | `6969` | Port the server listens on **inside** the container, written to `http.json`. Change the compose port mapping too. |
 | `SPT_BACKEND_IP` | _(unset)_ | The address the server **advertises to game clients** — not what it binds to. Leave unset for same-host play; set the host's reachable IP for LAN/remote. When unset and `LISTEN_ALL_NETWORKS=true`, it advertises `0.0.0.0`, which is what the 4.0 image has always done in production. |
 
 > **Where the files land on 4.1.** The bind mount is the game root and the server lives in

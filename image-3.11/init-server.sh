@@ -14,6 +14,7 @@ USER_NAME="${USER_NAME:-spt}"
 GROUP_NAME="${GROUP_NAME:-spt}"
 VERBOSE_LOGS="${VERBOSE_LOGS:-true}"
 LISTEN_ALL_NETWORKS="${LISTEN_ALL_NETWORKS:-false}"
+SPT_PORT="${SPT_PORT:-6969}"
 
 # ---- paths ----
 IMAGE_SRC=/opt/SPT      # server compiled into the image (read-only baseline)
@@ -51,16 +52,31 @@ seed_server() {
     chown -R "$PUID:$PGID" "$SERVER"
 }
 
-# Make the server bind to all interfaces (needed for LAN / Fika clients).
+# Bind address and listening port both live in http.json.
 # SPT 3.x keeps http config under SPT_Data/Server/configs/ (4.0 moved it to SPT_Data/configs/).
-listen_all_networks() {
+#
+# .port/.backendPort must move TOGETHER: the server binds .port, but the URLs it hands
+# clients are built as "<backendIp>:<backendPort>" (HttpServerHelper.buildUrl, which
+# also feeds getWebsocketUrl). Remapping only the host side of the compose port would
+# advertise a port nothing listens on, so SPT_PORT changes the port INSIDE the
+# container and the compose mapping stays 1:1.
+configure_network() {
     local http="$SERVER/SPT_Data/Server/configs/http.json"
-    if [ "$LISTEN_ALL_NETWORKS" = "true" ] && [ -f "$http" ]; then
-        local patched
-        patched="$(jq '.ip = "0.0.0.0" | .backendIp = "0.0.0.0"' "$http")" \
-            && printf '%s' "$patched" > "$http"
-        echo "Server set to listen on all networks (0.0.0.0)"
+    if [ ! -f "$http" ]; then
+        [ "$LISTEN_ALL_NETWORKS" = "true" ] && echo "WARNING: $http not found — skipping network config" >&2
+        return
     fi
+
+    local filter='.port = $port | .backendPort = $port'
+    [ "$LISTEN_ALL_NETWORKS" = "true" ] && filter="$filter | .ip = \"0.0.0.0\" | .backendIp = \"0.0.0.0\""
+
+    local patched
+    patched="$(jq --argjson port "$SPT_PORT" "$filter" "$http")" \
+        && printf '%s' "$patched" > "$http"
+
+    [ "$LISTEN_ALL_NETWORKS" = "true" ] && echo "Server set to listen on all networks (0.0.0.0)"
+    [ "$SPT_PORT" != "6969" ] && echo "Server port set to $SPT_PORT (map it 1:1 in compose)"
+    return 0
 }
 
 # Env-driven installers: Fika server mod, extra mods (MOD_URLS), Corter ModSync.
@@ -88,6 +104,6 @@ run_server() {
 banner
 setup_user_and_group
 seed_server
-listen_all_networks
+configure_network
 run_installers
 run_server

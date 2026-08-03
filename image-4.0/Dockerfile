@@ -149,7 +149,8 @@ COPY --from=build-selected --chmod=755 /app/publish /opt/gameroot/SPT
 COPY --chmod=755 init-server.sh /usr/bin/init-server
 COPY --chmod=755 scripts/ /opt/scripts/
 
-ENV SPT_MAJOR=${SPT_MAJOR}
+ENV SPT_MAJOR=${SPT_MAJOR} \
+    SPT_PORT=6969
 EXPOSE 6969
 
 # SPT serves HTTPS with a self-signed cert, hence -k. /launcher/ping needs no Fika.
@@ -159,6 +160,6 @@ EXPOSE 6969
 # and any service_healthy dependency sat idle for three minutes on a server that was
 # ready in twenty seconds.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD curl -fk --header "responsecompressed:0" https://localhost:6969/launcher/ping || exit 1
+  CMD curl -fk --header "responsecompressed:0" "https://localhost:${SPT_PORT}/launcher/ping" || exit 1
 
 ENTRYPOINT ["/usr/bin/init-server"]
