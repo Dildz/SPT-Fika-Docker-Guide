@@ -102,13 +102,13 @@ only; ModSync's `config.jsonc` excludes it from players).
 
 ## Runtime — ModSync (Phase 2)
 
-Read by `scripts/install_modsync.sh`. Installs the [Corter-ModSync](https://github.com/Dildz/ModSync-for-SPT4.0)
+Read by `scripts/install_modsync.sh`. Installs the [Corter-ModSync](https://github.com/Dildz/ModSync-for-SPT4)
 server mod (the SPT 4.0 fork) so clients keep their mods in sync with the server.
 
 | Var | Default | Meaning |
 |---|---|---|
 | `USE_MODSYNC` | `false` | Install the ModSync server mod. Off by default (opt-in). This table covers the **4.0** image (Dildz's SPT4.0 fork); it's ignored (with a logged skip) if you set `SPT_MAJOR=3` here. The separate **3.11 image** has its own `USE_MODSYNC` that installs Corter's original mod — see the frozen-image note above. |
-| `MODSYNC_VERSION` | `0.12.5` | Release tag (without the `v`) of `Dildz/ModSync-for-SPT4.0` to install. |
+| `MODSYNC_VERSION` | `0.12.5` | Release tag (without the `v`) of `Dildz/ModSync-for-SPT4` to install. |
 | `AUTO_UPDATE_MODSYNC` | `false` | If `true`, update to `MODSYNC_VERSION` **when it differs from what is installed** (same version-marker mechanism as `AUTO_UPDATE_FIKA`). `false` leaves it alone. |
 | `MODSYNC_URL` | _(derived)_ | Override the release-zip URL (e.g. a self-hosted mirror, or `file://` for testing). Normally leave unset. |
 

@@ -22,7 +22,7 @@ AUTO_UPDATE_MODSYNC="${AUTO_UPDATE_MODSYNC:-false}"
 
 [ "$USE_MODSYNC" = "true" ] || { echo "ModSync disabled (USE_MODSYNC=false)"; exit 0; }
 
-# SPT 4 only: this installs the Dildz/ModSync-for-SPT4.0 fork with the SPT-4 game-root
+# SPT 4 only: this installs the Dildz/ModSync-for-SPT4 fork with the SPT-4 game-root
 # layout. SPT 3.11 needs Corter's original mod and a different placement — not wired yet.
 if [ "${SPT_MAJOR:-4}" != "4" ]; then
     echo "ModSync auto-install supports SPT 4 only (SPT_MAJOR=${SPT_MAJOR:-4}); skipping. For 3.11, install Corter's original ModSync via MOD_URLS."
@@ -33,7 +33,7 @@ SPT="$ROOT/SPT"
 mod_dir="$SPT/user/mods/Corter-ModSync"
 config_rel="config.jsonc"
 artifact="Corter-ModSync-v${MODSYNC_VERSION}.zip"
-url="${MODSYNC_URL:-https://github.com/Dildz/ModSync-for-SPT4.0/releases/download/v${MODSYNC_VERSION}/${artifact}}"
+url="${MODSYNC_URL:-https://github.com/Dildz/ModSync-for-SPT4/releases/download/v${MODSYNC_VERSION}/${artifact}}"
 
 install_modsync() {
     echo "Installing ModSync v${MODSYNC_VERSION}"

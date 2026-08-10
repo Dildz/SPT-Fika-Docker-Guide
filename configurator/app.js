@@ -133,7 +133,7 @@ const TABS = [
       help: "Adds the ModSync server mod so clients keep their mods in sync with the server. 4.0 uses the Dildz SPT4 fork; 3.11 uses Corter's original mod." },
     { key: "modsyncVersion", label: "ModSync version", type: "text", def: "0.12.6",
       help: (s) => modVersionsFollowUpstream(s)
-        ? "Auto-filled to the latest Dildz/ModSync-for-SPT4.0 release on load; edit to pin a version."
+        ? "Auto-filled to the latest Dildz/ModSync-for-SPT4 release on load; edit to pin a version."
         : "Pinned to Corter's final 0.11.1 — c-orter/ModSync is no longer maintained." },
     { key: "quma", label: "Install Quartermaster", type: "toggle", def: false,
       help: "Adds Quartermaster (quma) — an advanced server web UI for admins and players. Installs/updates/removes server mods from SPT Forge and talks to the Docker socket to restart the server. Reach it directly on the public IP or behind your reverse proxy. See the field guide for features. Available on SPT 4.0 only." },
@@ -876,7 +876,7 @@ function detectVersions() {
   if (modVersionsFollowUpstream(state)) {
     for (const [field, repo, pin] of [
       ["fikaVersion",         "project-fika/Fika-Server-CSharp",  "__pinnedFika"],
-      ["modsyncVersion",      "Dildz/ModSync-for-SPT4.0",         "__pinnedModsync"],
+      ["modsyncVersion",      "Dildz/ModSync-for-SPT4",         "__pinnedModsync"],
       // Own 1.4.x version line, separate from Fika's — hence its own lookup.
       ["fikaHeadlessVersion", "project-fika/Fika-Headless",       "__pinnedHeadless"],
     ]) {

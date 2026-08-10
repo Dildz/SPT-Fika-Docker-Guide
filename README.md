@@ -37,7 +37,7 @@ Each line is a **separate package**, so a `docker pull` never carries you across
 | **SPT server** | 4.0 / 3.11 compiled from source at build time → native binary per architecture. 4.1 derives from the [official SPT image](https://github.com/sp-tarkov/server-csharp), which is already multi-arch. | all |
 | **Game-root mount** | The bind mount **is** the game root — the server runs from a subfolder (`SPT/` on 4.0, `SPT_Runtime/` on 4.1), so client-file mods write inside the mount and survive a container recreate. | 4.0 · 4.1 |
 | **Fika co-op** | The [Fika server mod](https://github.com/project-fika/Fika-Server-CSharp) installs on first boot (`INSTALL_FIKA=true`). | 4.0 · 3.11 |
-| **ModSync** | Optional — installs [Dildz/ModSync-for-SPT4.0](https://github.com/Dildz/ModSync-for-SPT4.0) so clients auto-sync your server's mods (`USE_MODSYNC=true`). 3.11 uses Corter's original. | 4.0 · 3.11 |
+| **ModSync** | Optional — installs [Dildz/ModSync-for-SPT4](https://github.com/Dildz/ModSync-for-SPT4) so clients auto-sync your server's mods (`USE_MODSYNC=true`). 3.11 uses Corter's original. | 4.0 · 3.11 |
 | **Quartermaster** | Optional web UI (`quma`) to install / update / remove server mods from SPT Forge. | 4.0 |
 | **Headless client** | Optional dedicated raid host (x86 only — runs a real SPT client). | 4.0 |
 | **Fika web app** | Optional browser admin UI ([`lacyway/fikawebapp`](https://hub.docker.com/r/lacyway/fikawebapp)). | 4.0 |
