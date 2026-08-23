@@ -340,7 +340,7 @@ Two implementation details that matter:
 - **Upstream is a build stage, never the runtime base.** Using it as the base would inherit its `VOLUME /opt/spt/user` declaration, which then follows every container as a stray anonymous volume we neither use nor clean up. So: `COPY --from=upstream /opt/spt /opt/gameroot/SPT_Runtime` onto a clean `aspnet:10.0`.
 - **The client scaffold comes from the release archive**, in its own stage so `curl`/`p7zip` never reach the runtime image. Fetch `SPT-${SPT_RELEASE}.7z`, assert it is shaped as expected, discard the release's own (Windows) server, trim the SPT-client BepInEx bits. `SPT_RELEASE` (`<ver>-<build>-<hash>`) is a **different identifier** from `SPT_VERSION` — bump both together.
 
-> **`SPT/` → `SPT_Runtime/`.** SPT 4.1 renamed the server directory in a real install ([manual install instructions](https://wiki.sp-tarkov.com/en/Manual-Install-Instructions)). The server itself does not read the name — it resolves `user/` relative to its own directory — so this is a match-the-convention decision, not a functional one. It matters for anyone copying paths from the wiki, and for the ModSync 4.1 port.
+> **`SPT/` → `SPT_Runtime/`.** SPT 4.1 renamed the server directory in a real install ([manual install instructions](https://wiki.sp-tushonka.com) - the original sp-tarkov wiki is 410 Gone and the deep link did not survive the move to SP-Tushonka). The server itself does not read the name — it resolves `user/` relative to its own directory — so this is a match-the-convention decision, not a functional one. It matters for anyone copying paths from the wiki, and for the ModSync 4.1 port.
 
 ---
 

@@ -25,8 +25,10 @@
 #             "../BepInEx" and "../ModSync.Updater.exe" resolve INSIDE the mount.
 #
 # NOTE THE FOLDER NAME: SPT 4.0 put the server in SPT/; 4.1 renamed it to
-# SPT_Runtime/ ("Open your SPT_Runtime folder. Run SPT.Server." —
-# https://wiki.sp-tarkov.com/en/Manual-Install-Instructions). The server binary
+# SPT_Runtime/ ("Open your SPT_Runtime folder. Run SPT.Server." - was
+# wiki.sp-tarkov.com/en/Manual-Install-Instructions, now 410 Gone along with the rest
+# of that domain; the wiki moved to https://wiki.sp-tushonka.com and the deep link did
+# not survive the move). The server binary
 # itself doesn't care — it resolves user/ relative to its own directory — but mods
 # and anyone comparing against a real install do, so we match upstream.
 #

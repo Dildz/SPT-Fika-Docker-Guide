@@ -1,6 +1,6 @@
 # SPT-Fika-Docker
 
-**Self-host a co-op [Escape from Tarkov](https://www.escapefromtarkov.com/) server — [SPT](https://sp-tarkov.com/) + [Fika](https://project-fika.com/) — in Docker, on x86 _or_ ARM.**
+**Self-host a co-op [Escape from Tarkov](https://www.escapefromtarkov.com/) server — [SPT](https://sp-tushonka.com) + [Fika](https://project-fika.com/) — in Docker, on x86 _or_ ARM.**
 
 Two pieces that work together:
 
@@ -194,7 +194,7 @@ docker build image-4.0/ -t spt-fika-server:4.0.13 \
 ## Credits
 
 - Original Docker guide by **[OnniSaarni](https://github.com/OnniSaarni)** — this repo grew out of it.
-- [**SPT**](https://github.com/sp-tarkov) (Single Player Tarkov) and [**Fika**](https://github.com/project-fika) (co-op) — the projects that make this possible.
+- [**SPT**](https://github.com/sp-tarkov) (Single Player Tarkov), continued by [**SP-Tushonka**](https://github.com/SP-Tushonka) from 4.1.3 onward, and [**Fika**](https://github.com/project-fika) (co-op) — the projects that make this possible.
 - [**zhliau/fika-spt-server-docker**](https://github.com/zhliau/fika-spt-server-docker) — prior art for running Fika and the headless client in Docker.
 - [**Outshynd**](https://github.com/Outshynd) — the build-from-source SPT server + clean wine headless approach that shaped this image.
 

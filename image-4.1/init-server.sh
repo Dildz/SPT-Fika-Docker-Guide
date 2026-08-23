@@ -27,7 +27,7 @@ SPT_BACKEND_IP="${SPT_BACKEND_IP:-}"
 
 # ---- paths ----
 # SPT 4.1 renamed the server directory from SPT/ (4.0) to SPT_Runtime/ — see
-# https://wiki.sp-tarkov.com/en/Manual-Install-Instructions. The server itself resolves
+# https://wiki.sp-tushonka.com (the old sp-tarkov wiki is 410 Gone). The server itself resolves
 # user/ relative to its own directory and doesn't read the name, but a real 4.1 install
 # uses SPT_Runtime/, so mods and admins expect it here too.
 IMAGE_SRC=/opt/gameroot          # image baseline: client scaffold + SPT_Runtime/
