@@ -1,7 +1,7 @@
 name: Build & publish 4.1 image
 
 # SPT 4.1 is the living branch. This image is DERIVED from the official
-# ghcr.io/sp-tarkov/server-csharp image (already multi-arch) and only re-lays-out the
+# ghcr.io/sp-tushonka/server-csharp image (already multi-arch) and only re-lays-out the
 # filesystem so the bind mount is the game root — see image-4.1/Dockerfile.
 #
 # Published as its own package (spt-fika-server-4.1.x). The 4.0 package
@@ -15,13 +15,13 @@ on:
   workflow_dispatch:
     inputs:
       spt_version:
-        description: "SPT 4.1.x version — a published tag of ghcr.io/sp-tarkov/server-csharp (e.g. 4.1.1)"
+        description: "SPT 4.1.x version — a published tag of ghcr.io/sp-tushonka/server-csharp (e.g. 4.1.3)"
         required: true
-        default: "4.1.1"
+        default: "4.1.3"
       spt_release:
-        description: "SPT release id for the client scaffold — <ver>-<build>-<hash> (e.g. 4.1.1-40743-e18bd1e). Bump WITH spt_version."
+        description: "SPT release id for the client scaffold — <ver>-<build>-<hash> (e.g. 4.1.3-40743-ddce41c). From SP-Tushonka/build releases. Bump WITH spt_version."
         required: true
-        default: "4.1.1-40743-e18bd1e"
+        default: "4.1.3-40743-ddce41c"
       tag_latest:
         description: "Also tag :latest on the 4.1.x package"
         type: boolean

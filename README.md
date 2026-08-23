@@ -34,7 +34,7 @@ Each line is a **separate package**, so a `docker pull` never carries you across
 
 | Feature | How | Lines |
 |---|---|---|
-| **SPT server** | 4.0 / 3.11 compiled from source at build time → native binary per architecture. 4.1 derives from the [official SPT image](https://github.com/sp-tarkov/server-csharp), which is already multi-arch. | all |
+| **SPT server** | 4.0 / 3.11 compiled from source at build time → native binary per architecture. 4.1 derives from the [official SPT image](https://github.com/SP-Tushonka/server-csharp), which is already multi-arch. | all |
 | **Game-root mount** | The bind mount **is** the game root — the server runs from a subfolder (`SPT/` on 4.0, `SPT_Runtime/` on 4.1), so client-file mods write inside the mount and survive a container recreate. | 4.0 · 4.1 |
 | **Fika co-op** | The [Fika server mod](https://github.com/project-fika/Fika-Server-CSharp) installs on first boot (`INSTALL_FIKA=true`). | 4.0 · 3.11 |
 | **ModSync** | Optional — installs [Dildz/ModSync-for-SPT4](https://github.com/Dildz/ModSync-for-SPT4) so clients auto-sync your server's mods (`USE_MODSYNC=true`). 3.11 uses Corter's original. | 4.0 · 3.11 |
@@ -182,7 +182,7 @@ docker build image-4.1/ -t spt-fika-server-4.1:4.1.1 \
 docker build image-4.0/ -t spt-fika-server:4.0.13 \
     --build-arg SPT_MAJOR=4 --build-arg SPT_VERSION=4.0.13
 ```
-`SPT_VERSION` must be a valid [`sp-tarkov/server-csharp`](https://github.com/sp-tarkov/server-csharp) tag. The 4.0 ModSync installer has an offline self-check: `bash image-4.0/scripts/test_modsync.sh`.
+`SPT_VERSION` must be a valid [`SP-Tushonka/server-csharp`](https://github.com/SP-Tushonka/server-csharp) tag for the 4.1 line (upstream moved orgs after 4.1.2); the frozen 4.0 line still uses `sp-tarkov/server-csharp`. The 4.0 ModSync installer has an offline self-check: `bash image-4.0/scripts/test_modsync.sh`.
 
 ---
 

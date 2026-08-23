@@ -857,12 +857,16 @@ function detectVersions() {
   const getJson = (url) =>
     fetch(url, { headers: { Accept: "application/json" } }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
 
+  // SP-Tushonka, not sp-tarkov: development moved orgs after 4.1.2, and sp-tarkov/build
+  // has published nothing since. Pointing at the old org would silently pin every new
+  // user to 4.1.2 forever, which is the worst kind of stale — it still "works".
+  //
   // Only 4.1 is living, so it is the only line worth asking about — a frozen line would
   // hand back a tag we publish no image for. /releases/latest is deliberately NOT used:
   // it returns whatever shipped most recently across every line, so a late 4.0.x hotfix
   // would fill a 4.0 version into the 4.1 form. Take the newest 4.1.x instead.
   if (!isFrozen(state)) {
-    getJson("https://api.github.com/repos/sp-tarkov/build/releases?per_page=20")
+    getJson("https://api.github.com/repos/SP-Tushonka/build/releases?per_page=20")
       .then((j) => {
         const r = (j || []).find((x) => !x.prerelease && !x.draft && /^4\.1\./.test(x.tag_name || ""));
         if (r && !state.__pinnedSpt) applyVersion("sptVersion", r.tag_name);

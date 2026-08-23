@@ -16,7 +16,7 @@ Updating SPT means building (or pulling) a new image tag.
 | Arg | Default | Meaning |
 |---|---|---|
 | `SPT_MAJOR` | `4` | `4` = C#/.NET build (live). `3` = 3.11 Node build (verified · frozen — see note below). |
-| `SPT_VERSION` | `4.0.13` | A valid tag/branch of the matching `sp-tarkov` repo (`server-csharp` for 4.x, `server` for 3.11.x). |
+| `SPT_VERSION` | `4.0.13` | A valid tag/branch of the matching upstream repo. 4.1 follows **`SP-Tushonka/server-csharp`** (development moved orgs after 4.1.2); the frozen 4.0 and 3.11 lines still build from `sp-tarkov/server-csharp` and `sp-tarkov/server`. |
 
 ```
 docker build image-4.0/ -t spt-fika-server:4.0.13 \
@@ -49,7 +49,7 @@ Each SPT line is a **separate package**, so pulling an update never moves you ac
 > differs from the fully-frozen 3.11 image, where those knobs do nothing.
 
 > **4.1 is built differently.** `image-4.1/` does not build SPT from source — it derives from the
-> official `ghcr.io/sp-tarkov/server-csharp` image (already multi-arch) and only re-lays-out the
+> official `ghcr.io/sp-tushonka/server-csharp` image (already multi-arch) and only re-lays-out the
 > filesystem so the bind mount is the game root, matching 4.0. Its only build-arg is `SPT_VERSION`
 > (an upstream tag, e.g. `4.1.1`); there is no `SPT_MAJOR`. It ships as a **bare server** — no Fika,
 > no ModSync, no mod installers — until those support 4.1, so the mod knobs below don't apply to it yet.

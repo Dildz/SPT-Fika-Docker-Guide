@@ -3,8 +3,15 @@
 # SPT 4.1 server image — game-root layout.
 #
 # Unlike image-4.0/ (which builds the server from source), 4.1 is DERIVED from the
-# official image. Upstream publishes ghcr.io/sp-tarkov/server-csharp as a real
-# multi-arch build (amd64 + arm64), so building it again ourselves buys nothing.
+# official image, published as a real multi-arch build (amd64 + arm64), so building
+# it again ourselves buys nothing.
+#
+# UPSTREAM MOVED ORGS. sp-tarkov wound down after 4.1.2 (2026-08-06) and development
+# continued under SP-Tushonka, which is where 4.1.3 onward is published - both the
+# server image and the release archive. sp-tarkov's own repos and packages are still
+# up, so image-4.0/ and image-3.11/ keep building from their pinned sp-tarkov tags and
+# were deliberately NOT repointed: they are frozen and a migration could only break
+# them. Only this file, the living line, follows the move.
 #
 # What we change is the FILESYSTEM LAYOUT, and only that:
 #
@@ -28,18 +35,18 @@
 # into every container as a stray anonymous volume we neither use nor clean up.
 #
 # Build:
-#   docker build image-4.1/ -t spt-fika-server-4.1:4.1.1 \
-#       --build-arg SPT_VERSION=4.1.1 --build-arg SPT_RELEASE=4.1.1-40743-e18bd1e
+#   docker build image-4.1/ -t spt-fika-server-4.1:4.1.3 \
+#       --build-arg SPT_VERSION=4.1.3 --build-arg SPT_RELEASE=4.1.3-40743-ddce41c
 #
-# SPT_VERSION  = a tag published for ghcr.io/sp-tarkov/server-csharp (the server).
+# SPT_VERSION  = a tag published for ghcr.io/sp-tushonka/server-csharp (the server).
 # SPT_RELEASE  = the full release id (<ver>-<build>-<hash>) of the SPT release
 #                archive (the client scaffold). These are DIFFERENT identifiers —
 #                bump both together on an SPT update.
 
-ARG SPT_VERSION=4.1.1
-ARG SPT_RELEASE=4.1.1-40743-e18bd1e
+ARG SPT_VERSION=4.1.3
+ARG SPT_RELEASE=4.1.3-40743-ddce41c
 
-FROM ghcr.io/sp-tarkov/server-csharp:${SPT_VERSION} AS upstream
+FROM ghcr.io/sp-tushonka/server-csharp:${SPT_VERSION} AS upstream
 
 # ---------------------------------------------------------------------------
 # Scaffold donor — the client-facing half of a real SPT install.
@@ -62,7 +69,10 @@ RUN apt-get update \
 # CURRENT release — when 4.1.0 shipped it dropped 4.0.13 and broke the 4.0 image's build
 # overnight. GitHub keeps every release asset. The release tag is derived from
 # SPT_RELEASE (its leading version) so the two can't drift apart.
-RUN curl -fsSL "https://github.com/sp-tarkov/build/releases/download/${SPT_RELEASE%%-*}/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
+#
+# SP-Tushonka/build, not sp-tarkov/build: the latter's releases stop at 4.1.2. The asset
+# naming convention (SPT-<ver>-<build>-<hash>.7z) carried over unchanged.
+RUN curl -fsSL "https://github.com/SP-Tushonka/build/releases/download/${SPT_RELEASE%%-*}/SPT-${SPT_RELEASE}.7z" -o /tmp/spt.7z \
     && 7z x /tmp/spt.7z -o/opt/gameroot >/dev/null \
     && rm -f /tmp/spt.7z
 
